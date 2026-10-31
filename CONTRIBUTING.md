@@ -28,8 +28,8 @@ or private validation artifacts. Use simulated values for public documentation.
 
 ## Manual release checklist
 
-This checklist is for a future, explicitly authorized release. Nothing in the
-local build commands creates a tag, pushes, or publishes a release.
+Publication requires explicit authorization. Nothing in the local build commands
+creates a tag, pushes, or publishes a release.
 
 1. Review the [README acceptance checks](README.md#on-device-acceptance-checks).
    Record actual device coverage and remaining gaps. Check both native settings
@@ -38,9 +38,13 @@ local build commands creates a tag, pushes, or publishes a release.
 2. Update the manifest development version and changelog, run the checks above,
    and commit reviewed source/docs. Confirm that no private artifacts are staged.
    The release README is read from the tagged commit, not the latest branch.
-3. After authorization, push the reviewed commit and create its version tag,
-   for example `v0.1.3`. Publish a **stable** GitHub release from that tag and make
-   it the latest release. KS's repository installer ignores drafts/prereleases.
+3. After authorization, push the reviewed commit and wait for **Build and test**
+   to pass on Linux. For a candidate, create a unique tag such as `v0.1.3-rc.1`
+   and publish a **prerelease**, explicitly not latest. Verify its workflow and
+   assets before promotion. Update the stable README/manifest/changelog before
+   tagging `v0.1.3`; publish that release as **stable** and latest. Never move an
+   already published tag. KS's repository installer ignores drafts/prereleases;
+   candidates use a manually downloaded ZIP in Developer Tools.
 4. The **Release** workflow tests the tagged source and builds with the tag's
    version (`v` is optional). It uses the built-in `${{ github.token }}` to attach
    `kiosk-satellite-plugin.json`, `ks-live-notifications-<version>.zip`, and

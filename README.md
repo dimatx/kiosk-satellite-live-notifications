@@ -4,7 +4,7 @@ A quiet, native notification chip for your **Kiosk Satellite dashboard and scree
 One Home Assistant notification at a time, rotating in the order you configure.
 No replacement clock, new screensaver mode, buttons, tap actions, or touch interception.
 
-**First-release candidate (0.1.3):** no release has been published yet. Requires Android 8.0+
+**Release candidate (0.1.3-rc.1).** Requires Android 8.0+
 (API 26) and Kiosk Satellite **2026.10.42+** with native overlay support.
 
 **Native** (KS dark theme):
@@ -18,18 +18,28 @@ No replacement clock, new screensaver mode, buttons, tap actions, or touch inter
 Actual device screenshots, cropped to the notification. Both use simulated values;
 the live indicator is off.
 
-## Install
+**Native** (KS light theme, portrait):
 
-**Developer package, available now:** build this repository using the instructions
-below. Install `dist/ks-live-notifications-0.1.3.zip` through **Plugin Manager >
-Developer Tools > Install from ZIP**, confirm that you trust it, and enable the
-plugin. The **Build and test** workflow also produces a developer package when run.
+![Native portrait notification with simulated laundry status](docs/screenshots/portrait-light-chip.png)
 
-**After the first stable release is published:** use **Plugin Manager > Add plugin**
-and enter `https://github.com/dimatx/kiosk-satellite-live-notifications`. KS previews
-the release's README, permissions and compatibility before installation. This
-repository is not currently listed in Community Plugins. There is no published
-release to install through the repository flow yet.
+## Installation
+
+### Release candidate
+
+This prerelease is for testing. Download `ks-live-notifications-0.1.3-rc.1.zip`
+from [GitHub Releases](https://github.com/dimatx/kiosk-satellite-live-notifications/releases).
+In KS, use **Plugin Manager > Developer Tools > Install from ZIP**, confirm that
+you trust it, and enable the plugin.
+
+KS's normal **Add plugin** repository flow uses the latest **stable** release and
+does not find prereleases. This repository is not currently listed in Community
+Plugins.
+
+### Developer build
+
+Build this repository using the instructions below, or download the developer
+package produced by the **Build and test** workflow. Install its ZIP through
+**Developer Tools > Install from ZIP** as above.
 
 Updating a developer ZIP retains compatible settings and the enabled state.
 Switching from a developer ZIP to a GitHub installation requires uninstalling first;
@@ -238,9 +248,9 @@ python tools\verify_package.py
 
 Outputs:
 
-- `dist/ks-live-notifications-0.1.3.zip` — local developer installation package.
+- `dist/ks-live-notifications-0.1.3-rc.1.zip` — local developer installation package.
 - `dist/kiosk-satellite-plugin.json` — byte-identical standalone manifest.
-- `dist/ks-live-notifications-0.1.3.zip.sha256` — SHA-256 checksum.
+- `dist/ks-live-notifications-0.1.3-rc.1.zip.sha256` — SHA-256 checksum.
 
 The official SDK and build helpers are vendored at the revision recorded in
 [NOTICE](NOTICE), with their Apache-2.0 licensing intact. SDK classes are compile-time
@@ -277,8 +287,9 @@ No physical-device or emulator rendering verification is implied by the JVM/buil
 checks. KS Remote Admin screenshots may omit native overlays; use a device screenshot
 when verifying visuals.
 
-Physical coverage is Android 8.1 (Lenovo StarView, 1280×800) and Android 17
-(Fire Max 11, 2000×1200), both landscape on KS 2026.10.45. The Android 8.1 display
+Physical coverage is Android 8.1 (Lenovo StarView, 1280×800 landscape and
+800×1280 portrait) and Android 17 (Fire Max 11, 2000×1200 landscape), on KS
+2026.10.45. The Android 8.1 display
 was checked with isolated simulated HA values, dashboard/screensaver transitions,
 all three scopes, both styles, inheritance, screen-off and background/resume.
 Both devices were checked with the washer icon, text and progress at 100%, 130%
@@ -290,21 +301,41 @@ The vehicle, dryer and vacuum demo icons were also inspected on Android 17.
 Single static notifications were checked across screensaver-to-dashboard changes
 without relying on another value update or rotation to paint the first frame.
 
+The portrait pass checked adaptive width, a custom width capped to the viewport,
+long labels/status, 180% text/icon size, offsets, three-row rotation and progress.
+Native styling was checked on the light-theme dashboard, and Glass over the
+built-in Image URL screensaver using a public nature photograph, not household
+photos. An isolated demo source was made unavailable and restored. A separate
+device-local HA connection failure was induced by temporarily pointing only the
+test kiosk at a verified closed loopback port, then restoring its connection:
+stale content hid and fresh content returned without restarting the plugin.
+Shared HA, credentials and network configuration were untouched. Exact host,
+plugin and demo-helper settings were restored, preserving portrait and lights off.
+
 Remote Admin's actual notification editor was checked for field order, plain
 labels, conditional progress controls and canceled-draft preservation. The test
 device's restricted menu did not expose native Settings; its editor rendering
 remains an acceptance gap rather than a claimed pass. Native list-row headings
 are unsupported in the verified host schema/renderer.
 
-Core/controller tests cover disconnect and lifecycle behavior. Portrait, other
-screensaver renderers, additional KS UI scales/Android font sizes, a light KS
-theme, and an induced HA network outage still need a broader device pass.
+Core/controller tests also cover disconnect and lifecycle behavior. Additional
+screensaver renderers, KS UI scales/Android font sizes, abrupt shared-server
+outages and prolonged intermittent network loss remain broader coverage gaps.
 These two devices do not establish sharpness on every Android version or GPU.
 The earlier demo video predates the new light-off preference, display scopes and
 Native/Glass style controls; it is not evidence of those newer changes.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development and the manual release
-checklist, and [CHANGELOG.md](CHANGELOG.md) for the unpublished candidate changes.
+checklist, and [CHANGELOG.md](CHANGELOG.md) for release changes.
+
+## Related plugins
+
+- [Navbar](https://github.com/dimatx/kiosk-satellite-navbar) adds native navigation
+  between dashboards, menus and camera views.
+- [Action Bar](https://github.com/dimatx/kiosk-satellite-action-bar) adds Home
+  Assistant controls for lights, covers, locks and other configured entities.
+
+These are separate, optional plugins. Live notifications does not require either.
 
 ## Credits and license
 

@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "ks-live-notifications",
   "name": "Live notifications",
-  "version": "0.1.3",
+  "version": "0.1.3-rc.1",
   "minAppVersion": "2026.10.42",
   "minAndroidSdk": 26,
   "entryClass": "com.shymoose.livenotifications.LiveNotificationsPlugin",

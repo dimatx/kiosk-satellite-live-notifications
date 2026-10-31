@@ -1,8 +1,9 @@
 # Changelog
 
-No public release has been published.
+## 0.1.3-rc.1
 
-## Unreleased — first-release candidate 0.1.3
+First public release candidate. Install its downloaded ZIP through Developer
+Tools; KS's repository installation flow intentionally excludes prereleases.
 
 - Original passive Home Assistant notification overlay with ordered rotation,
   explicit state/numeric visibility rules, bounded text and a clipped roller.
@@ -23,6 +24,10 @@ No public release has been published.
 - Repaint after the host sizes a wrapped native overlay, so a single static
   notification does not wait for a later value update or rotation to appear.
 - Build/test workflows, verified developer packages, licensing and release docs.
+- Device acceptance on Android 8.1 and 17, including native-resolution settled
+  icon/text/progress checks. The Android 8.1 pass also covers portrait, light KS
+  theme, an Image URL photo screensaver, isolated unavailable/recovery and a
+  device-local HA connection failure/recovery. See README for the exact limits.
 
 Earlier 0.1.0–0.1.2 versions were local developer iterations, not public releases.
 When updating those builds, missing display scope defaults to Always, general
