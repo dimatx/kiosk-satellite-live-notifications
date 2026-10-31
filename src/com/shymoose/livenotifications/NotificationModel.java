@@ -327,6 +327,7 @@ final class NotificationModel {
             case "weather": return "mdi:weather-partly-cloudy";
             case "lock": return "mdi:lock-outline";
             case "cover": return "mdi:window-shutter";
+            case "vacuum": return "mdi:robot-vacuum";
             case "binary_sensor": return "mdi:checkbox-blank-circle-outline";
             default: return "mdi:information-outline";
         }

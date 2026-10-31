@@ -16,6 +16,7 @@ public final class CoreTest {
         defaultsAndLimits();
         predicatesAndAvailability();
         overridesAndFormatting();
+        vacuumSources();
         percentageProgress();
         configurableProgressAndIndicator();
         optionalPercentageText();
@@ -126,6 +127,34 @@ public final class CoreTest {
         states.put("sensor.a", snapshot("available", "on", map()));
         check(NotificationModel.eligible(config(Collections.singletonList(row)), states, Locale.US).isEmpty(),
             "state equality is case sensitive");
+    }
+
+    private static void vacuumSources() {
+        Map<String, Object> row = row("vacuum.robot");
+        row.put("advanced", true);
+        row.put("valueEntity", "sensor.robot_current_room");
+        row.put("rule", "Equals");
+        row.put("operand", "cleaning");
+        row.put("progressMode", "On");
+        row.put("progressEntity", "sensor.robot_cleaning_progress");
+        NotificationModel.Config config = config(Collections.singletonList(row));
+        check(config.sources.size() == 3, "vacuum activity, room and progress share three subscriptions");
+        Map<String, NotificationModel.Snapshot> states = states("vacuum.robot",
+            snapshot("available", "cleaning", map("friendly_name", "Robot")));
+        states.put("sensor.robot_current_room", snapshot("available", "Study", map("device_class", "enum")));
+        states.put("sensor.robot_cleaning_progress", snapshot("available", "42", map("unit_of_measurement", "%")));
+        NotificationModel.Item item = config.entries.get(0).evaluate(states, Locale.US);
+        check(item.icon.equals("mdi:robot-vacuum"), "vacuum without an explicit HA icon gets a vacuum icon");
+        check(item.label.equals("Robot") && item.value.equals("Study") && item.progress.equals(42.0),
+            "actual room and percentage sources are independent of the active-work condition");
+        states.put("vacuum.robot", snapshot("available", "cleaning", map("icon", "mdi:robot-vacuum-variant")));
+        check(config.entries.get(0).evaluate(states, Locale.US).icon.equals("mdi:robot-vacuum-variant"),
+            "explicit vacuum icon still overrides the domain fallback");
+        for (String state : new String[]{"docked", "idle", "paused", "returning", "unknown", "unavailable"}) {
+            states.put("vacuum.robot", snapshot("available", state, map()));
+            check(config.entries.get(0).evaluate(states, Locale.US) == null,
+                "cached room and progress never make a non-cleaning vacuum eligible: " + state);
+        }
     }
 
     private static void overridesAndFormatting() {

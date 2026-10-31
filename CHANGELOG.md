@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+- Vacuums without an explicit Home Assistant icon now use a robot-vacuum icon
+  instead of the generic information icon.
+- Regression coverage for active-only vacuum notifications with independent
+  current-room and cleaning-percentage sources.
+
 ## 0.1.4
 
 - Original notification/status-bar icon in the Navigation bar and Action bar
