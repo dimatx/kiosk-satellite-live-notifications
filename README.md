@@ -1,6 +1,6 @@
 # Live notifications for Kiosk Satellite
 
-**A quiet info bar for your [Kiosk Satellite](https://github.com/jxlarrea/kiosk-satellite) wall panel.**
+**A rotating live-status bar for your [Kiosk Satellite](https://github.com/jxlarrea/kiosk-satellite) wall display.**
 See the laundry's time remaining, a vacuum's progress or a vehicle's arrival time,
 one notification at a time. It sits over your dashboard or existing screensaver,
 without replacing the clock or getting in the way of a touch.
@@ -11,7 +11,6 @@ without replacing the clock or getting in the way of a touch.
 </p>
 
 **Native** follows KS's theme. **Glass** is a translucent dark surface for photos.
-These are real device captures with simulated laundry values; the live indicator is off.
 
 ## Why use it
 
@@ -41,7 +40,6 @@ Open **Plugin Manager > Developer Tools > Install from ZIP**, confirm that you
 trust it, and enable **Live notifications**.
 
 KS's normal **Add plugin** flow uses stable releases, not prereleases.
-Community Plugins listing is separate from publication; this plugin is not listed yet.
 
 ### First steps
 
@@ -98,14 +96,6 @@ Live notifications reads only the entities you choose, through Kiosk Satellite's
 own Home Assistant connection. It never sees a Home Assistant token, calls a
 service, or sends data anywhere else. Its permissions are `overlay` and `host.read`.
 
-## Development
-
-[CONTRIBUTING.md](CONTRIBUTING.md) covers the toolchain, build and release process.
-The [device coverage](docs/reference.md#on-device-acceptance-checks) records what
-was actually checked on Android 8.1 and 17, including portrait, light theme and
-connection recovery, and what remains untested. See [CHANGELOG.md](CHANGELOG.md)
-for release changes.
-
 ## Related plugins
 
 [Navbar](https://github.com/dimatx/kiosk-satellite-navbar) moves between dashboards,
@@ -123,3 +113,5 @@ by [@jxlarrea](https://github.com/jxlarrea). Conceptually inspired by
 
 [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for SDK/tooling attribution and
 [screenshot credits](docs/screenshots/README.md) for the documentation images.
+
+[Development guide](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
