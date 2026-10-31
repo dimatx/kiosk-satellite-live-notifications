@@ -45,7 +45,7 @@ final class NotificationModel {
             offsetY = integer(settings, "offsetY", -32, -2048, 2048);
             width = integer(settings, "width", 320, 220, 640);
             autoWidth = choice(settings, "widthMode", "Adaptive", new String[]{"Adaptive", "Custom"}).equals("Adaptive");
-            textScale = integer(settings, "textScale", 120, 80, 180);
+            textScale = integer(settings, "textScale", 100, 80, 180);
             anchor = choice(settings, "anchor", "Bottom", ANCHORS);
             List<Entry> parsed = new ArrayList<>();
             Set<String> unique = new LinkedHashSet<>();

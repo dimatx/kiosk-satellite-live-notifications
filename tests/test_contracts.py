@@ -60,6 +60,24 @@ class ContractsTest(unittest.TestCase):
         self.assertIn("value == null ? INVISIBLE : VISIBLE", chip)
         self.assertIn("getWidth() * percent / 100f", chip)
 
+    def test_simple_settings_preserve_saved_choices(self):
+        settings = {field["key"]: field for field in MANIFEST["settings"]}
+        fields = {field["key"]: field for field in settings["entries"]["fields"]}
+        self.assertEqual(settings["textScale"]["default"], 100)
+        self.assertEqual(settings["motion"]["title"], "Motion")
+        self.assertEqual(settings["motion"]["options"], ["Roller", "None"])
+        self.assertIn("light stays static", settings["motion"]["description"])
+        self.assertEqual(fields["progressMode"]["options"], ["Automatic", "Off", "On"])
+        self.assertIn("custom progress source", fields["progressMode"]["description"])
+        self.assertEqual(fields["showPercentage"]["visibleWhen"],
+                         {"key": "progressMode", "notEquals": "Off"})
+        self.assertTrue(fields["showPercentage"]["default"])
+        self.assertFalse(fields["advanced"]["default"])
+        for key in ("progressEntity", "progressAttribute"):
+            self.assertEqual(fields[key]["visibleWhen"], {"key": "progressMode", "equals": "On"})
+        for key in ("iconEntity", "valueEntity", "valueAttribute", "conditionEntity", "conditionAttribute"):
+            self.assertEqual(fields[key]["visibleWhen"], {"key": "advanced", "equals": True})
+
 
 if __name__ == "__main__":
     unittest.main()

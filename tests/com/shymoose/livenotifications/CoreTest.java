@@ -27,7 +27,11 @@ public final class CoreTest {
         NotificationModel.Config empty = config(Collections.emptyList());
         check(empty.entries.isEmpty() && empty.sources.isEmpty(), "empty config");
         check(empty.dwellMs == 10_000 && empty.width == 320 && empty.motion, "design defaults");
-        check(empty.autoWidth && empty.textScale == 120, "adaptive width and reference At a Glance scale");
+        check(empty.autoWidth && empty.textScale == 100, "adaptive width and neutral default scale");
+        check(new NotificationModel.Config(map("textScale", 120)).textScale == 120,
+            "explicit saved device scale is preserved");
+        check(!new NotificationModel.Config(map("motion", "None")).motion,
+            "saved None still disables transition and indicator motion");
         check(NotificationModel.defaultWidth(true) == 480, "wider landscape default");
         check(NotificationModel.defaultWidth(false) == 320, "compact portrait default");
         Map<String, Object> customWidth = map("widthMode", "Custom", "width", 400, "textScale", 150);
@@ -307,6 +311,8 @@ public final class CoreTest {
         states.put("sensor.progress", snapshot("available", "42%", map()));
         check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US).value.equals("42%"),
             "Off retains percentage text");
+        check(!config(Collections.singletonList(row)).entries.get(0).showPercentage,
+            "hidden percentage preference remains saved while progress is Off");
         row.put("progressMode", "On");
         row.put("progressEntity", "sensor.other");
         states.put("sensor.other", snapshot("available", "68", map()));

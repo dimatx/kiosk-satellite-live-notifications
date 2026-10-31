@@ -33,20 +33,23 @@ never resumes after restart. Preview does not wake the display or start a screen
   promptly. Live name, icon and value changes do not restart its dwell.
 - **Roller** is a clipped 580 ms cylinder transition with clear vertical travel and
   perspective inside a stationary chip, not a whole-card rotation.
-  **None** disables motion; Android's disabled animations setting is respected too.
+  The **Motion** setting also controls the live-indicator pulse: **None** disables
+  both animations and keeps an enabled light static. Android's disabled animations
+  setting is respected too.
 - The translucent dark surface, KS typeface, circular icon and two single-line,
   ellipsized text fields stay bounded. Adaptive width is 480 dp in landscape and
   320 dp in portrait, capped by the available viewport. Height is normally
   84 dp and grows only for text scaling, never because a notification is long.
   KS's **Scale UI** applies to the whole overlay.
-- **Text and icon size** defaults to 120%. The title and status use At a Glance's
-  13/17 proportions and regular/semibold hierarchy. Set this percentage to the
+- **Text and icon size** defaults to a neutral 100% for new configurations.
+  Existing explicitly saved sizes are preserved. The title and status use At a
+  Glance's 13/17 proportions and regular/semibold hierarchy. Set this percentage to the
   current stock **Row scaling** to match manually; the SDK cannot read that setting.
 - Each row's **Progress bar** can be **Automatic**, **Off**, or **On**. Automatic
   recognizes HA `%` units or one explicit percentage in displayed text/attributes;
-  Off never draws a track. On reveals independent progress entity/attribute picks
-  and treats that source as 0–100 percent, so remaining-time text can have a separate
-  completion bar. Empty progress overrides follow the displayed value source.
+  Off keeps the bar hidden. On reveals optional progress entity/attribute picks
+  for a custom source, read as 0–100 percent, so remaining-time text can have a
+  separate completion bar. Empty progress overrides follow the displayed value source.
   Progress sources share subscriptions and count toward the same 16-entity limit.
   Values outside
   0–100, unavailable data and ambiguous multiple percentages never produce a fill;
@@ -56,6 +59,8 @@ never resumes after restart. Preview does not wake the display or start a screen
   bar replace its matching percentage digits while retaining useful activity or
   remaining-time text. With no valid bar (including Off), percent text is retained;
   an unrelated percentage is not removed when the bar uses an independent source.
+  The option is hidden when **Progress bar** is **Off**, without clearing its saved
+  preference.
 - An optional per-row **Live indicator** adds a small white light with a softly
   feathered halo and one slow brightness pulse;
   the entity icon stays static. It only appears with valid subscribed sources,
@@ -137,9 +142,9 @@ python tools\verify_package.py
 
 Outputs:
 
-- `dist/ks-live-notifications-0.1.1.zip` — local developer installation package.
+- `dist/ks-live-notifications-0.1.2.zip` — local developer installation package.
 - `dist/kiosk-satellite-plugin.json` — byte-identical standalone manifest.
-- `dist/ks-live-notifications-0.1.1.zip.sha256` — SHA-256 checksum.
+- `dist/ks-live-notifications-0.1.2.zip.sha256` — SHA-256 checksum.
 
 The official SDK and build helpers are vendored at the revision recorded in
 [NOTICE](NOTICE), with their Apache-2.0 licensing intact. SDK classes are compile-time
