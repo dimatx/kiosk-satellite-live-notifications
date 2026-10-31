@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "ks-live-notifications",
   "name": "Live notifications",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "2026.10.42",
   "minAndroidSdk": 26,
   "entryClass": "com.shymoose.livenotifications.LiveNotificationsPlugin",
@@ -47,7 +47,20 @@
          "visibleWhen": {"key": "advanced", "equals": true}},
         {"key": "conditionAttribute", "title": "Condition attribute", "type": "string",
          "visibleWhen": {"key": "advanced", "equals": true},
-         "description": "Optional exact top-level scalar attribute. Available checks this source too."}
+         "description": "Optional exact top-level scalar attribute. Available checks this source too."},
+        {"key": "progressMode", "title": "Progress bar", "type": "select", "default": "Automatic",
+         "options": ["Automatic", "Off", "On"],
+         "description": "Automatic uses a displayed percentage. Off hides the bar. On reads the progress source as 0-100 percent."},
+        {"key": "progressEntity", "title": "Progress entity", "type": "entity",
+         "visibleWhen": {"key": "progressMode", "equals": "On"},
+         "description": "Empty uses the displayed value source. Choose another entity to keep progress separate from the displayed text."},
+        {"key": "progressAttribute", "title": "Progress attribute", "type": "string",
+         "visibleWhen": {"key": "progressMode", "equals": "On"},
+         "description": "Optional exact top-level attribute. With no progress overrides, uses the displayed value/attribute; a chosen entity with an empty attribute uses its state."},
+        {"key": "showPercentage", "title": "Show percentage text", "type": "boolean", "default": true,
+         "description": "Turn off to let a valid bar replace matching percentage digits. Other status text stays; percentage text is retained if no valid bar is shown."},
+        {"key": "liveIndicator", "title": "Live indicator", "type": "boolean", "default": false,
+         "description": "A tiny, gently pulsing light while this row's subscribed sources are valid. Static when motion is disabled. The entity icon never animates."}
       ]
     },
     {
@@ -57,7 +70,12 @@
     {
       "key": "motion", "title": "Transition", "type": "select", "default": "Roller",
       "options": ["Roller", "None"], "group": "Rotation",
-      "description": "A clipped, subtle 350 ms roll. Choose None for no motion; Android's disabled animations are respected too."
+      "description": "A clipped 580 ms cylinder roll. Choose None for no motion; Android's disabled animations are respected too."
+    },
+    {
+      "key": "textScale", "title": "Text and icon size", "type": "number", "default": 120,
+      "min": 80, "max": 180, "step": 5, "unit": "%", "group": "Appearance",
+      "description": "At a Glance title/status proportions. To match it manually, use the same percentage as its Row scaling. This does not read or change stock settings."
     },
     {
       "key": "anchor", "title": "Anchor", "type": "select", "default": "Bottom",
@@ -76,8 +94,14 @@
       "description": "Positive moves down; negative moves up."
     },
     {
-      "key": "width", "title": "Chip width", "type": "number", "default": 320,
+      "key": "widthMode", "title": "Width", "type": "select", "default": "Adaptive",
+      "options": ["Adaptive", "Custom"], "group": "Placement",
+      "description": "Adaptive uses 480 dp in landscape and 320 dp in portrait, capped by available space. Custom keeps your chosen width."
+    },
+    {
+      "key": "width", "title": "Custom chip width", "type": "number", "default": 320,
       "min": 220, "max": 640, "step": 10, "unit": "dp", "group": "Placement",
+      "visibleWhen": {"key": "widthMode", "equals": "Custom"},
       "description": "Fixed width across notifications, capped by available screen space. Follows KS Scale UI."
     },
     {

@@ -23,6 +23,7 @@ public final class ControllerTest {
         initialReadRaces();
         previewLifetime();
         invalidConfigurationAndFailures();
+        progressSubscriptions();
         stopAndRestart();
         System.out.println("ControllerTest: " + checkCount() + " lifecycle assertions passed");
     }
@@ -38,7 +39,7 @@ public final class ControllerTest {
         check(f.host.entities().size() == 2, "deduplicated entity subscriptions after both reads");
         check(f.host.shows == 1, "one overlay created for active period");
         check(f.host.spec.onTop() && !f.host.spec.touchable() && !f.host.spec.closeOnBack(), "purely passive overlay");
-        check(f.host.spec.width() == 320 && f.host.spec.height() == OverlaySpec.WRAP && f.host.spec.offsetY() == -32,
+        check(f.host.spec.width() == OverlaySpec.WRAP && f.host.spec.height() == OverlaySpec.WRAP && f.host.spec.offsetY() == -32,
             "placement defaults reach SDK");
         check(selected(f.plugin) == null, "wait for fresh entity snapshots");
         f.entity("sensor.a", "available", "one");
@@ -83,6 +84,7 @@ public final class ControllerTest {
         f.entity("sensor.a", "available", "a");
         f.settings.put("offsetX", 100);
         f.settings.put("width", 400);
+        f.settings.put("widthMode", "Custom");
         f.plugin.configure(f.settings);
         check(f.host.spec.offsetX() == 100 && f.host.spec.width() == 400 && f.host.shows == 2,
             "placement changes rebuild exactly once");
@@ -173,6 +175,28 @@ public final class ControllerTest {
         pending.host.complete("isScreenOn", true);
         pending.host.complete("isScreensaverActive", true);
         check(newer.shows == 0, "old-session callbacks ignored after restart");
+    }
+
+    private static void progressSubscriptions() throws Exception {
+        Map<String, Object> row = row("sensor.activity");
+        row.put("progressMode", "On");
+        row.put("progressEntity", "sensor.progress");
+        row.put("liveIndicator", true);
+        Fixture f = new Fixture(Collections.singletonList(row));
+        f.active();
+        f.entity("sensor.activity", "available", "24 min remaining");
+        f.entity("sensor.progress", "available", "65");
+        check(f.host.entities().size() == 2 && selected(f.plugin).progress == 65, "controller subscribes to independent progress");
+        check(selected(f.plugin).liveIndicator && !f.host.statusError, "valid progress enables live cue");
+        f.entity("sensor.progress", "disconnected", "65");
+        check(selected(f.plugin).progress == null && !selected(f.plugin).liveIndicator && f.host.statusError,
+            "progress disconnect clears fill/light and reports fault without hiding readable value");
+        row.put("progressMode", "Off");
+        f.plugin.configure(f.settings);
+        f.scheduler.runReady();
+        check(f.host.entities().size() == 1 && !f.host.statusError, "Off releases extra subscription and clears source warning");
+        f.plugin.onEvent("ks.screen.state", map("on", false));
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null, "screen off clears live cue model and sources");
     }
 
     private static NotificationModel.Item selected(LiveNotificationsPlugin plugin) throws Exception {

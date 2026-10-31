@@ -16,6 +16,9 @@ public final class CoreTest {
         defaultsAndLimits();
         predicatesAndAvailability();
         overridesAndFormatting();
+        percentageProgress();
+        configurableProgressAndIndicator();
+        optionalPercentageText();
         orderedRotation();
         System.out.println("CoreTest: " + checks + " assertions passed");
     }
@@ -24,6 +27,12 @@ public final class CoreTest {
         NotificationModel.Config empty = config(Collections.emptyList());
         check(empty.entries.isEmpty() && empty.sources.isEmpty(), "empty config");
         check(empty.dwellMs == 10_000 && empty.width == 320 && empty.motion, "design defaults");
+        check(empty.autoWidth && empty.textScale == 120, "adaptive width and reference At a Glance scale");
+        check(NotificationModel.defaultWidth(true) == 480, "wider landscape default");
+        check(NotificationModel.defaultWidth(false) == 320, "compact portrait default");
+        Map<String, Object> customWidth = map("widthMode", "Custom", "width", 400, "textScale", 150);
+        NotificationModel.Config custom = new NotificationModel.Config(customWidth);
+        check(!custom.autoWidth && custom.width == 400 && custom.textScale == 150, "explicit width and type size preserved");
         List<Map<String, Object>> rows = new ArrayList<>();
         for (int i = 0; i < 32; i++) rows.add(row("sensor.shared"));
         check(config(rows).sources.size() == 1, "duplicate sources share one subscription");
@@ -190,6 +199,122 @@ public final class CoreTest {
         check(rotation.nextDeadline() == deadline, "value update preserves dwell");
         check(rotation.select(Collections.emptyList(), 80_101, 10_000) == null, "last clearing hides");
         check(rotation.select(all, 90_000, 10_000) == a, "fresh cycle restarts at configured first");
+    }
+
+    private static void percentageProgress() {
+        check(NotificationModel.progress("68", "%") == 68, "HA percent unit");
+        check(NotificationModel.progress("68.5", "%") == 68.5, "fractional progress");
+        check(NotificationModel.progress("0", "%") == 0, "zero progress is valid");
+        check(NotificationModel.progress("100", "%") == 100, "complete progress is valid");
+        check(NotificationModel.progress("42%", null) == 42, "percent-formatted attribute");
+        check(NotificationModel.progress("Cleaning - 42% complete", null) == 42, "single embedded percent token");
+        for (String value : new String[]{"-1%", "101%", "unknown", "NaN%", "1e9999%", "1.2.3%", "40% battery 60%"}) {
+            check(NotificationModel.progress(value, null) == null, "invalid or ambiguous percent: " + value);
+        }
+        check(NotificationModel.progress("101", "%") == null, "out-of-range HA percent is not clamped");
+        check(NotificationModel.progress("-1", "%") == null, "negative HA percent rejected");
+        check(NotificationModel.progress("12", "min") == null, "ETA minutes are not progress");
+        check(NotificationModel.progress("42", null) == null, "arbitrary number is not progress");
+        Map<String, Object> row = row("input_text.demo");
+        row.put("advanced", true);
+        row.put("valueEntity", "input_number.percent");
+        NotificationModel.Config config = config(Collections.singletonList(row));
+        Map<String, NotificationModel.Snapshot> states = states("input_text.demo", snapshot("available", "Drying", map()));
+        states.put("input_number.percent", snapshot("available", "68", map("unit_of_measurement", "%")));
+        check(config.entries.get(0).evaluate(states, Locale.US).progress == 68, "separate value entity supplies progress");
+        row.put("valueAttribute", "completion");
+        states.put("input_number.percent", snapshot("available", "68", map("completion", "42%")));
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US).progress == 42,
+            "percent-formatted value attribute supplies progress");
+        states.put("input_number.percent", snapshot("unavailable", "68", map("completion", "42%")));
+        check(config.entries.get(0).evaluate(states, Locale.US) == null, "unavailable sources never retain progress");
+    }
+
+    private static void configurableProgressAndIndicator() {
+        Map<String, Object> row = row("input_text.demo");
+        row.put("liveIndicator", true);
+        row.put("progressMode", "On");
+        row.put("progressEntity", "sensor.progress");
+        Map<String, NotificationModel.Snapshot> states = states("input_text.demo",
+            snapshot("available", "24 min remaining", map()));
+        states.put("sensor.progress", snapshot("available", "65", map()));
+        NotificationModel.Config config = config(Collections.singletonList(row));
+        NotificationModel.Item item = config.entries.get(0).evaluate(states, Locale.US);
+        check(item.value.equals("24 min remaining") && item.progress == 65, "independent progress preserves remaining-time text");
+        check(item.liveIndicator, "light allowed only with valid subscribed sources");
+        check(config.sources.size() == 2, "independent progress consumes one shared subscription");
+        states.put("sensor.progress", snapshot("available", "150", map()));
+        item = config.entries.get(0).evaluate(states, Locale.US);
+        check(item.progress == null && !item.liveIndicator, "invalid progress hides fill and live cue");
+        check(config.entries.get(0).problem(states).contains("0 to 100"), "invalid explicit progress diagnosed");
+        states.put("sensor.progress", snapshot("disconnected", "65", map()));
+        item = config.entries.get(0).evaluate(states, Locale.US);
+        check(item.progress == null && !item.liveIndicator, "disconnected progress never shows stale fill/light");
+        check(config.entries.get(0).problem(states).contains("disconnected"), "progress connection diagnosed");
+        row.put("progressAttribute", "completion");
+        states.put("sensor.progress", snapshot("available", "running", map("completion", 42)));
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US).progress == 42,
+            "independent numeric progress attribute");
+        row.put("progressMode", "Off");
+        row.put("progressEntity", "invalid but hidden");
+        config = config(Collections.singletonList(row));
+        check(config.sources.size() == 1, "Off ignores stored overrides and releases progress subscription");
+        states.put("input_text.demo", snapshot("available", "68%", map()));
+        item = config.entries.get(0).evaluate(states, Locale.US);
+        check(item.progress == null && item.liveIndicator, "Off suppresses percent bar without suppressing valid light");
+        row.put("progressMode", "Automatic");
+        config = config(Collections.singletonList(row));
+        check(config.sources.size() == 1 && config.entries.get(0).evaluate(states, Locale.US).progress == 68,
+            "Automatic ignores independent overrides");
+        row.put("progressMode", "On");
+        row.put("progressEntity", "");
+        row.put("progressAttribute", "");
+        row.put("advanced", true);
+        row.put("valueAttribute", "completion");
+        states.put("input_text.demo", snapshot("available", "running", map("completion", 71)));
+        config = config(Collections.singletonList(row));
+        check(config.sources.size() == 1 && config.entries.get(0).evaluate(states, Locale.US).progress == 71,
+            "empty On overrides follow displayed attribute and deduplicate");
+        row.put("liveIndicator", false);
+        check(!config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US).liveIndicator,
+            "per-entry light can be disabled");
+        check(NotificationModel.samples().stream().noneMatch(sample -> sample.liveIndicator),
+            "preview never presents samples as live");
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (int i = 0; i < 16; i++) rows.add(row("sensor.value_" + i));
+        rows.get(0).put("progressMode", "On");
+        rows.get(0).put("progressEntity", "sensor.seventeenth");
+        rejects(() -> config(rows), "independent progress participates in atomic subscription limit");
+    }
+
+    private static void optionalPercentageText() {
+        Map<String, Object> row = row("sensor.progress");
+        Map<String, NotificationModel.Snapshot> states = states("sensor.progress",
+            snapshot("available", "68.5", map("unit_of_measurement", "%")));
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US).value.equals("68.5 %"),
+            "percentage text is retained by default");
+        row.put("showPercentage", false);
+        NotificationModel.Config config = config(Collections.singletonList(row));
+        check(config.entries.get(0).evaluate(states, Locale.GERMANY).value.isEmpty(),
+            "valid bar can replace localized percentage-only text");
+        states.put("sensor.progress", snapshot("available", "Cleaning - 42% complete", map()));
+        check(config.entries.get(0).evaluate(states, Locale.US).value.equals("Cleaning"),
+            "hiding percentage preserves useful embedded activity text");
+        states.put("sensor.progress", snapshot("available", "101%", map()));
+        check(config.entries.get(0).evaluate(states, Locale.US).value.equals("101%"),
+            "invalid bar never discards percent text");
+        row.put("progressMode", "Off");
+        states.put("sensor.progress", snapshot("available", "42%", map()));
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US).value.equals("42%"),
+            "Off retains percentage text");
+        row.put("progressMode", "On");
+        row.put("progressEntity", "sensor.other");
+        states.put("sensor.other", snapshot("available", "68", map()));
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US).value.equals("42%"),
+            "a different percentage is not redundant with independent progress");
+        states.put("sensor.progress", snapshot("available", "24 min remaining", map()));
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US).value.equals("24 min remaining"),
+            "separate progress never removes remaining-time text");
     }
 
     static Map<String, Object> row(String entity) {

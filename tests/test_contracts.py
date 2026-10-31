@@ -49,8 +49,16 @@ class ContractsTest(unittest.TestCase):
         self.assertIn("setSingleLine(true)", chip)
         self.assertIn("setEllipsize(TextUtils.TruncateAt.END)", chip)
         self.assertIn("ValueAnimator.areAnimatorsEnabled()", chip)
-        self.assertIn("setDuration(350)", chip)
+        self.assertIn("setDuration(580)", chip)
         self.assertIn("setClipToOutline(true)", chip)
+        self.assertIn('ofFloat(outgoing, "rotationX", 0, 60)', chip)
+        self.assertIn('ofFloat(current, "rotationX", -60, 0)', chip)
+        self.assertIn("getHeight() * 0.70f", chip)
+        self.assertIn("label.setTextSize(13 * scale)", chip)
+        self.assertIn("value.setTextSize(17 * scale)", chip)
+        self.assertIn("theme.typeface(600)", chip)
+        self.assertIn("value == null ? INVISIBLE : VISIBLE", chip)
+        self.assertIn("getWidth() * percent / 100f", chip)
 
 
 if __name__ == "__main__":

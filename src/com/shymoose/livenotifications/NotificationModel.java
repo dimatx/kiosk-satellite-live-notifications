@@ -12,10 +12,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Android-independent configuration, eligibility and presentation. */
 final class NotificationModel {
     static final int MAX_ENTITIES = 16;
+    private static final Pattern PERCENT = Pattern.compile(
+        "(?<![\\w.,])([-+]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+))\\s*%");
+    private static final Pattern DISPLAY_PERCENT = Pattern.compile(
+        "(?<![\\w.,])[-+]?(?:[0-9]+(?:[.,][0-9]+)?|\\.[0-9]+)\\s*%"
+            + "(?:\\s+(?i:complete|completed|done)\\b)?");
     static final String[] RULES = {
         "Available", "Equals", "Does not equal", "Greater than", "At least", "Less than", "At most"
     };
@@ -24,8 +31,8 @@ final class NotificationModel {
     };
 
     static final class Config {
-        final boolean enabled, motion;
-        final int dwellMs, offsetX, offsetY, width;
+        final boolean enabled, motion, autoWidth;
+        final int dwellMs, offsetX, offsetY, width, textScale;
         final String anchor;
         final List<Entry> entries;
         final Set<String> sources;
@@ -37,6 +44,8 @@ final class NotificationModel {
             offsetX = integer(settings, "offsetX", 0, -2048, 2048);
             offsetY = integer(settings, "offsetY", -32, -2048, 2048);
             width = integer(settings, "width", 320, 220, 640);
+            autoWidth = choice(settings, "widthMode", "Adaptive", new String[]{"Adaptive", "Custom"}).equals("Adaptive");
+            textScale = integer(settings, "textScale", 120, 80, 180);
             anchor = choice(settings, "anchor", "Bottom", ANCHORS);
             List<Entry> parsed = new ArrayList<>();
             Set<String> unique = new LinkedHashSet<>();
@@ -55,6 +64,7 @@ final class NotificationModel {
                         unique.add(entry.iconEntity);
                         unique.add(entry.valueEntity);
                         unique.add(entry.conditionEntity);
+                        if (entry.progressMode.equals("On")) unique.add(entry.progressEntity);
                     }
                     index++;
                 }
@@ -68,7 +78,8 @@ final class NotificationModel {
         }
 
         boolean samePlacement(Config other) {
-            return other != null && anchor.equals(other.anchor) && width == other.width
+            return other != null && anchor.equals(other.anchor) && autoWidth == other.autoWidth
+                && (autoWidth || width == other.width)
                 && offsetX == other.offsetX && offsetY == other.offsetY;
         }
     }
@@ -77,6 +88,8 @@ final class NotificationModel {
         final int id;
         final String entity, label, iconEntity, valueEntity, valueAttribute;
         final String conditionEntity, conditionAttribute, rule, operand;
+        final String progressMode, progressEntity, progressAttribute;
+        final boolean liveIndicator, showPercentage;
         final BigDecimal numericOperand;
 
         Entry(int id, Map<?, ?> row) {
@@ -99,6 +112,13 @@ final class NotificationModel {
             conditionEntity = advanced ? source(row, "conditionEntity", entity) : entity;
             valueAttribute = advanced ? text(row, "valueAttribute", "") : "";
             conditionAttribute = advanced ? text(row, "conditionAttribute", "") : "";
+            progressMode = choice(row, "progressMode", "Automatic", new String[]{"Automatic", "Off", "On"});
+            String progressOverride = progressMode.equals("On") ? text(row, "progressEntity", "") : "";
+            progressEntity = progressOverride.isEmpty() ? valueEntity : entity(progressOverride);
+            String attribute = progressMode.equals("On") ? text(row, "progressAttribute", "") : "";
+            progressAttribute = progressOverride.isEmpty() && attribute.isEmpty() ? valueAttribute : attribute;
+            liveIndicator = bool(row, "liveIndicator", false);
+            showPercentage = bool(row, "showPercentage", true);
         }
 
         String problem(Map<String, Snapshot> snapshots) {
@@ -109,6 +129,12 @@ final class NotificationModel {
             if (problem == null && numericOperand != null
                 && decimal(snapshots.get(conditionEntity).scalar(conditionAttribute)) == null) {
                 problem = conditionEntity + ": condition input is not a finite number";
+            }
+            if (problem == null && progressMode.equals("On")) {
+                problem = sourceProblem(snapshots, progressEntity, progressAttribute);
+                if (problem == null && progress(snapshots.get(progressEntity).scalar(progressAttribute), "%") == null) {
+                    problem = progressEntity + ": progress must be one finite percentage from 0 to 100";
+                }
             }
             return problem;
         }
@@ -123,7 +149,22 @@ final class NotificationModel {
             if (title == null || title.isEmpty()) title = entity;
             String iconName = icon == null || !icon.available() ? null : icon.attribute("icon");
             if (iconName == null || !iconName.startsWith("mdi:")) iconName = defaultIcon(iconEntity);
-            return new Item(id, clean(title), format(value, valueAttribute, displayed, locale), iconName);
+            Double completion = null;
+            Double displayedPercent = progress(displayed,
+                valueAttribute.isEmpty() ? value.attribute("unit_of_measurement") : null);
+            if (progressMode.equals("Automatic")) {
+                completion = displayedPercent;
+            } else if (progressMode.equals("On")) {
+                Snapshot progressSource = snapshots.get(progressEntity);
+                if (progressSource != null) completion = progress(progressSource.scalar(progressAttribute), "%");
+            }
+            String formatted = format(value, valueAttribute, displayed, locale);
+            if (!showPercentage && completion != null && completion.equals(displayedPercent)) {
+                formatted = DISPLAY_PERCENT.matcher(formatted).replaceFirst("").trim()
+                    .replaceFirst("^[-:|]\\s+", "").replaceFirst("\\s*[-:|]$", "").trim();
+            }
+            return new Item(id, clean(title), formatted, iconName,
+                completion, liveIndicator && problem(snapshots) == null);
         }
     }
 
@@ -156,12 +197,20 @@ final class NotificationModel {
     static final class Item {
         final int id;
         final String label, value, icon;
+        final Double progress;
+        final boolean liveIndicator;
 
         Item(int id, String label, String value, String icon) {
+            this(id, label, value, icon, NotificationModel.progress(value, null), false);
+        }
+
+        Item(int id, String label, String value, String icon, Double progress, boolean liveIndicator) {
             this.id = id;
             this.label = label;
             this.value = value;
             this.icon = icon;
+            this.progress = progress;
+            this.liveIndicator = liveIndicator;
         }
     }
 
@@ -180,6 +229,22 @@ final class NotificationModel {
         result.add(new Item(1, "Preview - Front door", "Open", "mdi:door-open"));
         result.add(new Item(2, "Preview - Washing machine", "12 min remaining", "mdi:washing-machine"));
         return result;
+    }
+
+    static int defaultWidth(boolean landscape) {
+        return landscape ? 480 : 320;
+    }
+
+    static Double progress(String raw, String unit) {
+        BigDecimal value = "%".equals(unit) ? decimal(raw) : null;
+        if (value == null && raw != null) {
+            Matcher match = PERCENT.matcher(clean(raw));
+            if (!match.find()) return null;
+            value = decimal(match.group(1));
+            if (match.find()) return null;
+        }
+        return value != null && value.signum() >= 0 && value.compareTo(BigDecimal.valueOf(100)) <= 0
+            ? value.doubleValue() : null;
     }
 
     static boolean matches(String rule, String input, String operand, BigDecimal target) {

@@ -215,7 +215,7 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         synchronized (this) {
             if (!running || chip == null || config == null || runtimeError != null) return;
             try {
-                chip.show(selected, config.motion);
+                chip.show(selected, config.motion, config.textScale);
             } catch (RuntimeException | LinkageError error) {
                 fault("Cannot render the notification chip", error);
             }
@@ -271,17 +271,20 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
 
     private void show() {
         final int revision = ++overlayRevision;
+        final boolean adaptiveWidth = config.autoWidth;
+        final int textScale = config.textScale;
         OverlaySpec spec = OverlaySpec.at(anchor(config.anchor))
-            .size(config.width, OverlaySpec.WRAP).inset(12).offset(config.offsetX, config.offsetY)
+            .size(config.autoWidth ? OverlaySpec.WRAP : config.width, OverlaySpec.WRAP)
+            .inset(12).offset(config.offsetX, config.offsetY)
             .onTop(true).touchable(false).closeOnBack(false);
         shown = true;
         host.showOverlay(OVERLAY, spec, new OverlayFactory() {
             @Override public View create(Context context, KsTheme theme) {
                 synchronized (LiveNotificationsPlugin.this) {
-                    NotificationChip created = new NotificationChip(context, theme);
+                    NotificationChip created = new NotificationChip(context, theme, adaptiveWidth, textScale);
                     if (running && shown && overlayRevision == revision && runtimeError == null) {
                         chip = created;
-                        created.show(selected, false);
+                        created.show(selected, config.motion, config.textScale);
                     }
                     return created;
                 }
@@ -334,7 +337,7 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
                 }
             }
             error = problems > 0;
-            message = error ? problems + " notification(s) have unavailable sources. " + first
+            message = error ? problems + " notification(s) have source problems. " + first
                 : selected == null ? "No notifications currently match their visibility conditions."
                 : "Showing eligible notifications in configured order (" + subscribed.size() + "/16 unique entities).";
         }

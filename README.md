@@ -31,12 +31,38 @@ never resumes after restart. Preview does not wake the display or start a screen
 - **Time per notification** defaults to 10 seconds (3–120 seconds). New eligible
   rows do not interrupt the current reading; clearing the current row advances
   promptly. Live name, icon and value changes do not restart its dwell.
-- **Roller** is a restrained, clipped 350 ms transition inside a stationary chip.
+- **Roller** is a clipped 580 ms cylinder transition with clear vertical travel and
+  perspective inside a stationary chip, not a whole-card rotation.
   **None** disables motion; Android's disabled animations setting is respected too.
 - The translucent dark surface, KS typeface, circular icon and two single-line,
-  ellipsized text fields stay bounded. Width defaults to 320 dp. Height is normally
-  76 dp and grows only for Android font scaling, never because a notification is long.
+  ellipsized text fields stay bounded. Adaptive width is 480 dp in landscape and
+  320 dp in portrait, capped by the available viewport. Height is normally
+  84 dp and grows only for text scaling, never because a notification is long.
   KS's **Scale UI** applies to the whole overlay.
+- **Text and icon size** defaults to 120%. The title and status use At a Glance's
+  13/17 proportions and regular/semibold hierarchy. Set this percentage to the
+  current stock **Row scaling** to match manually; the SDK cannot read that setting.
+- Each row's **Progress bar** can be **Automatic**, **Off**, or **On**. Automatic
+  recognizes HA `%` units or one explicit percentage in displayed text/attributes;
+  Off never draws a track. On reveals independent progress entity/attribute picks
+  and treats that source as 0–100 percent, so remaining-time text can have a separate
+  completion bar. Empty progress overrides follow the displayed value source.
+  Progress sources share subscriptions and count toward the same 16-entity limit.
+  Values outside
+  0–100, unavailable data and ambiguous multiple percentages never produce a fill;
+  ordinary numbers such as ETA minutes are not progress. The track's space stays
+  reserved on non-percent entries so the chip and clock never jump during rotation.
+- **Show percentage text** is on by default. Turn it off to let a valid progress
+  bar replace its matching percentage digits while retaining useful activity or
+  remaining-time text. With no valid bar (including Off), percent text is retained;
+  an unrelated percentage is not removed when the bar uses an independent source.
+- An optional per-row **Live indicator** adds a small white light with a softly
+  feathered halo and one slow brightness pulse;
+  the entity icon stays static. It only appears with valid subscribed sources,
+  never for preview samples, and becomes static with **None** or disabled system
+  animations. It stops when the row/view/screen disappears. It indicates current
+  subscription availability, not a guarantee of how frequently an integration
+  measures its physical appliance.
 - Live mode shows only while KS reports an active screensaver and screen. It works
   with stock or plugin screensavers, including dim mode; stock black covers and
   Lockdown Mode can still cover it according to KS's layering rules.
@@ -72,8 +98,9 @@ separately from ordinary nonmatching conditions.
 
 ### Placement is manual
 
-Choose any of nine anchors, horizontal and vertical offsets, and a 220–640 dp
-width. Positive offsets move right/down; negative offsets move left/up. KS caps
+Choose any of nine anchors, horizontal and vertical offsets, and adaptive or custom
+width. Adaptive width responds to orientation; Custom keeps your explicit
+220–640 dp width. Positive offsets move right/down; negative offsets move left/up. KS caps
 the chip to available screen space and keeps it within a 12 dp edge inset.
 
 **There is no automatic clock/widget avoidance.** The current SDK does not expose
@@ -110,9 +137,9 @@ python tools\verify_package.py
 
 Outputs:
 
-- `dist/ks-live-notifications-0.1.0.zip` — local developer installation package.
+- `dist/ks-live-notifications-0.1.1.zip` — local developer installation package.
 - `dist/kiosk-satellite-plugin.json` — byte-identical standalone manifest.
-- `dist/ks-live-notifications-0.1.0.zip.sha256` — SHA-256 checksum.
+- `dist/ks-live-notifications-0.1.1.zip.sha256` — SHA-256 checksum.
 
 The official SDK and build helpers are vendored at the revision recorded in
 [NOTICE](NOTICE), with their Apache-2.0 licensing intact. SDK classes are compile-time
@@ -139,7 +166,7 @@ Before calling a release device-tested, install the ZIP on a KS test device and 
   changing its settings; stock screen-off, cover and Lockdown behavior remains intact.
 - Touches and Back go through normally; the chip neither wakes nor dismisses anything.
 - Different screen sizes/orientations, KS UI scales, Android font sizes, light/dark
-  KS themes, long labels/values, and the full 350 ms roller with animation disabled too.
+  KS themes, long labels/values, and the full 580 ms roller with animation disabled too.
 - Two-minute preview expiry, stopping via its toggle/settings close/screen-off,
   accurate placement, and no implication of automatic collision avoidance.
 - HA disconnection/reconnection, entity removal, unknown/unavailable/large data,
