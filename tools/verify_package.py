@@ -44,14 +44,25 @@ def verify(path):
             "SHA-256 sidecar does not match package bytes")
     require(path.stat().st_size <= 4 * 1024 * 1024, "ZIP exceeds KS size limit")
     with zipfile.ZipFile(path) as archive:
-        require(set(archive.namelist()) == {"kiosk-satellite-plugin.json", "plugin.jar", "LICENSE"},
-                "Unexpected package contents")
+        names = set(archive.namelist())
         require(sum(info.file_size for info in archive.infolist()) <= 4 * 1024 * 1024,
                 "Expanded package exceeds KS size limit")
         manifest_bytes = archive.read("kiosk-satellite-plugin.json")
         require(manifest_bytes == (path.parent / "kiosk-satellite-plugin.json").read_bytes(),
                 "Packaged and standalone manifests must be byte-identical")
         manifest = json.loads(manifest_bytes)
+        expected = {"kiosk-satellite-plugin.json", "plugin.jar", "LICENSE"}
+        icon = manifest.get("icon")
+        if icon is not None:
+            require(icon == "icon.png", "Unexpected plugin icon path")
+            expected.add("assets/" + icon)
+        require(names == expected, "Unexpected package contents")
+        if icon is not None:
+            png = archive.read("assets/" + icon)
+            require(png == (ROOT / "assets" / icon).read_bytes(), "Packaged icon differs")
+            require(len(png) >= 24 and png[:8] == b"\x89PNG\r\n\x1a\n"
+                    and png[12:16] == b"IHDR" and struct.unpack(">II", png[16:24]) == (256, 256),
+                    "Plugin icon must be a 256x256 PNG")
         require(path.name == f"{manifest['id']}-{manifest['version']}.zip", "Incorrect package filename")
         require(archive.read("LICENSE") == (ROOT / "LICENSE").read_bytes(), "Packaged license differs")
         with zipfile.ZipFile(io.BytesIO(archive.read("plugin.jar"))) as jar:

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4
+
+- Original notification/status-bar icon in the Navigation bar and Action bar
+  family: orange background, dark pill, teal icon circle and a bell/status motif.
+- Icon included in the manifest, installation preview, plugin package and README.
+- Package verification checks the declared icon's bytes, dimensions and path,
+  while still rejecting undeclared assets and non-plugin DEX definitions.
+- Notification runtime and settings are unchanged.
+
 ## 0.1.3
 
 First stable release, with the same runtime as the verified 0.1.3-rc.1 candidate.

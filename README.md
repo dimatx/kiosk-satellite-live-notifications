@@ -1,3 +1,5 @@
+<img src="assets/icon.png" alt="" width="64" align="right">
+
 # Live notifications for Kiosk Satellite
 
 **A rotating live-status bar for your [Kiosk Satellite](https://github.com/jxlarrea/kiosk-satellite) wall display.**
