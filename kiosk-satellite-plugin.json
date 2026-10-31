@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "apiVersion": 1,
+  "id": "ks-live-notifications",
+  "name": "Live notifications",
+  "version": "0.1.0",
+  "minAppVersion": "2026.10.42",
+  "minAndroidSdk": 26,
+  "entryClass": "com.shymoose.livenotifications.LiveNotificationsPlugin",
+  "description": "Quiet, rotating Home Assistant notifications over your existing screensaver. Manual placement, a subtle roller transition, and a sample-data preview.",
+  "author": "dimatx",
+  "license": "Apache-2.0",
+  "capabilities": ["overlay", "host.read"],
+  "settings": [
+    {
+      "key": "enabled", "title": "Show during screensaver", "type": "boolean",
+      "default": true, "group": "Notifications",
+      "description": "A passive overlay over any existing screensaver. Does not change screensaver settings."
+    },
+    {
+      "key": "entries", "title": "Notifications", "type": "list", "default": [],
+      "group": "Notifications", "addTitle": "Add notification", "maxItems": 32,
+      "description": "Shown in this order when eligible. At most 16 unique source entities across enabled rows; shared sources count once.",
+      "row": {"title": "entity", "subtitle": "label"},
+      "fields": [
+        {"key": "enabled", "title": "Enabled", "type": "boolean", "default": true},
+        {"key": "entity", "title": "Entity", "type": "entity", "required": true,
+         "description": "Supplies the name, icon, value and condition by default."},
+        {"key": "label", "title": "Custom label", "type": "string",
+         "description": "Leave empty to use the entity's friendly name."},
+        {"key": "rule", "title": "Show when", "type": "select", "default": "Available",
+         "options": ["Available", "Equals", "Does not equal", "Greater than", "At least", "Less than", "At most"],
+         "description": "Unavailable, unknown or missing sources never match, including Does not equal."},
+        {"key": "operand", "title": "Compare with", "type": "string", "required": true,
+         "visibleWhen": {"key": "rule", "notEquals": "Available"},
+         "description": "Exact case-sensitive HA state (for example on), or a plain number such as 25.5."},
+        {"key": "advanced", "title": "Override sources", "type": "boolean", "default": false,
+         "description": "Optional icon, value and visibility sources. Empty entity picks use the primary entity."},
+        {"key": "iconEntity", "title": "Icon entity", "type": "entity",
+         "visibleWhen": {"key": "advanced", "equals": true}},
+        {"key": "valueEntity", "title": "Value entity", "type": "entity",
+         "visibleWhen": {"key": "advanced", "equals": true}},
+        {"key": "valueAttribute", "title": "Value attribute", "type": "string",
+         "visibleWhen": {"key": "advanced", "equals": true},
+         "description": "Optional exact top-level attribute name. Scalar text, boolean or number only; no templates or paths."},
+        {"key": "conditionEntity", "title": "Condition entity", "type": "entity",
+         "visibleWhen": {"key": "advanced", "equals": true}},
+        {"key": "conditionAttribute", "title": "Condition attribute", "type": "string",
+         "visibleWhen": {"key": "advanced", "equals": true},
+         "description": "Optional exact top-level scalar attribute. Available checks this source too."}
+      ]
+    },
+    {
+      "key": "dwell", "title": "Time per notification", "type": "number", "default": 10,
+      "min": 3, "max": 120, "step": 1, "unit": "s", "group": "Rotation"
+    },
+    {
+      "key": "motion", "title": "Transition", "type": "select", "default": "Roller",
+      "options": ["Roller", "None"], "group": "Rotation",
+      "description": "A clipped, subtle 350 ms roll. Choose None for no motion; Android's disabled animations are respected too."
+    },
+    {
+      "key": "anchor", "title": "Anchor", "type": "select", "default": "Bottom",
+      "options": ["Top left", "Top", "Top right", "Left", "Center", "Right", "Bottom left", "Bottom", "Bottom right"],
+      "group": "Placement",
+      "description": "Manual placement only. The plugin cannot detect or automatically avoid clocks or widgets."
+    },
+    {
+      "key": "offsetX", "title": "Horizontal offset", "type": "number", "default": 0,
+      "min": -2048, "max": 2048, "step": 1, "unit": "dp", "group": "Placement",
+      "description": "Positive moves right; negative moves left. KS keeps the chip on screen."
+    },
+    {
+      "key": "offsetY", "title": "Vertical offset", "type": "number", "default": -32,
+      "min": -2048, "max": 2048, "step": 1, "unit": "dp", "group": "Placement",
+      "description": "Positive moves down; negative moves up."
+    },
+    {
+      "key": "width", "title": "Chip width", "type": "number", "default": 320,
+      "min": 220, "max": 640, "step": 10, "unit": "dp", "group": "Placement",
+      "description": "Fixed width across notifications, capped by available screen space. Follows KS Scale UI."
+    },
+    {
+      "key": "preview", "title": "Preview sample notifications", "type": "boolean",
+      "default": false, "group": "Placement",
+      "description": "Cycles labeled sample data, even with no configured entities. Stops when turned off, the settings page closes, the screen turns off, or after two minutes. Does not start or replace a screensaver."
+    }
+  ],
+  "commands": []
+}

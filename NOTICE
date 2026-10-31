@@ -1,0 +1,21 @@
+Live notifications
+Copyright 2026 dimatx
+
+The original plugin implementation is licensed under Apache-2.0.
+
+The compile-time SDK in sdk/src/ and these build tools are from
+Kiosk Satellite Plugins by jxlarrea, licensed under Apache-2.0:
+tools/build.py
+tools/android_sdk.py
+tools/plugin_assets.py
+tools/plugin_manifest.py
+tools/test_android_sdk.py
+tools/test_plugin_assets.py
+tools/test_plugin_manifest.py
+https://github.com/jxlarrea/kiosk-satellite-plugins
+Pinned source revision: 84e7abab40d54986cec4a3deb9ea3f944513393a
+Their SPDX headers and the upstream Apache license are retained.
+The host provides SDK classes at runtime; they are not packaged.
+
+Conceptual inspiration only: https://github.com/jtscott/ks-live-activities
+No implementation code from that project was retrieved, copied, adapted or reused.
