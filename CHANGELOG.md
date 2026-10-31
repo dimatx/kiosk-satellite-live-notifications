@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+First stable release, with the same runtime as the verified 0.1.3-rc.1 candidate.
+
+- Repository installation and update checks through KS's normal Add plugin flow.
+- A concise setup-focused README, installation button and contextual screenshots.
+
 ## 0.1.3-rc.1
 
 First public release candidate. Install its downloaded ZIP through Developer

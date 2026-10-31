@@ -207,9 +207,9 @@ python tools\verify_package.py
 
 Outputs:
 
-- `dist/ks-live-notifications-0.1.3-rc.1.zip` — local developer installation package.
+- `dist/ks-live-notifications-0.1.3.zip` — local developer installation package.
 - `dist/kiosk-satellite-plugin.json` — byte-identical standalone manifest.
-- `dist/ks-live-notifications-0.1.3-rc.1.zip.sha256` — SHA-256 checksum.
+- `dist/ks-live-notifications-0.1.3.zip.sha256` — SHA-256 checksum.
 
 The official SDK and build helpers are vendored at the revision recorded in
 [NOTICE](../NOTICE), with their Apache-2.0 licensing intact. SDK classes are compile-time

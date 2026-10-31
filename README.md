@@ -32,14 +32,17 @@ without replacing the clock or getting in the way of a touch.
 Requires Kiosk Satellite **2026.10.42+**, Android **8.0+**, and a KS connection
 to Home Assistant for live values.
 
-### Release candidate
+[![Install in Kiosk Satellite](https://kiosksatellite.com/img/badges/plugin-add.svg)](https://kiosksatellite.com/redirect/plugin/?repository=dimatx/kiosk-satellite-live-notifications)
 
-Candidate `0.1.3-rc.1` uses a downloaded ZIP from
-[GitHub Releases](https://github.com/dimatx/kiosk-satellite-live-notifications/releases).
-Open **Plugin Manager > Developer Tools > Install from ZIP**, confirm that you
-trust it, and enable **Live notifications**.
+You can also open **Plugin Manager > Add plugin** and paste:
 
-KS's normal **Add plugin** flow uses stable releases, not prereleases.
+```text
+https://github.com/dimatx/kiosk-satellite-live-notifications
+```
+
+Review the preview, confirm that you trust the plugin, install it, and enable
+**Live notifications**. Repository installation includes update checks for new
+stable versions.
 
 ### First steps
 
