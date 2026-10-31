@@ -16,6 +16,10 @@ class ContractsTest(unittest.TestCase):
         self.assertLess((ROOT / "kiosk-satellite-plugin.json").stat().st_size, 32768)
 
     def test_settings_schema(self):
+        groups = [field["group"] for field in MANIFEST["settings"]]
+        self.assertEqual(list(dict.fromkeys(groups)),
+                         ["User interface", "Notifications", "Screensaver", "Rotation", "Placement"])
+        self.assertEqual(sum(a != b for a, b in zip(groups, groups[1:])), 4)
         def verify(fields):
             previous = set()
             self.assertLessEqual(len(fields), 50)
@@ -44,8 +48,11 @@ class ContractsTest(unittest.TestCase):
         for disallowed in ("setContentInsets(", "publishScreensaver", "startScreensaver",
                            "stopScreensaver", "haCall(", "runAction(", "setOnClickListener"):
             self.assertNotIn(disallowed, source)
-        self.assertIn(".onTop(true).touchable(false).closeOnBack(false)", source)
+        self.assertIn(".onTop(onTop).touchable(false).closeOnBack(false)", source)
+        self.assertIn("config.allows(screensaver)", source)
         chip = (ROOT / "src/com/shymoose/livenotifications/NotificationChip.java").read_text()
+        self.assertIn("theme.card()", chip)
+        self.assertIn('theme.color("onSurface")', chip)
         self.assertIn("setSingleLine(true)", chip)
         self.assertIn("setEllipsize(TextUtils.TruncateAt.END)", chip)
         self.assertIn("ValueAnimator.areAnimatorsEnabled()", chip)
@@ -73,10 +80,61 @@ class ContractsTest(unittest.TestCase):
                          {"key": "progressMode", "notEquals": "Off"})
         self.assertTrue(fields["showPercentage"]["default"])
         self.assertFalse(fields["advanced"]["default"])
+        self.assertFalse(fields["liveIndicator"]["default"])
+        self.assertEqual(settings["displayScope"]["default"], "Always")
+        self.assertEqual(settings["displayScope"]["options"],
+                         ["Always", "Screensaver only", "Dashboard only"])
+        self.assertEqual(settings["style"]["group"], "User interface")
+        self.assertEqual(settings["style"]["title"], "Style")
+        self.assertEqual(settings["style"]["default"], "Native")
+        self.assertEqual(settings["style"]["options"], ["Native", "Glass"])
+        self.assertEqual(settings["screensaverStyle"]["group"], "Screensaver")
+        self.assertEqual(settings["screensaverStyle"]["title"], "Style on screensaver")
+        self.assertEqual(settings["screensaverStyle"]["options"],
+                         ["Default", "Native", "Glass"])
+        self.assertEqual(settings["screensaverStyle"]["default"], "Default")
         for key in ("progressEntity", "progressAttribute"):
             self.assertEqual(fields[key]["visibleWhen"], {"key": "progressMode", "equals": "On"})
         for key in ("iconEntity", "valueEntity", "valueAttribute", "conditionEntity", "conditionAttribute"):
             self.assertEqual(fields[key]["visibleWhen"], {"key": "advanced", "equals": True})
+
+    def test_wrapped_overlay_repaint_lifecycle(self):
+        source = (ROOT / "src/com/shymoose/livenotifications/NotificationChip.java").read_text()
+        self.assertIn("redrawAfterLayout = this::postInvalidateOnAnimation", source)
+        self.assertIn("addOnGlobalLayoutListener(redrawAfterLayout)", source)
+        self.assertIn("removeOnGlobalLayoutListener(redrawAfterLayout)", source)
+
+    def test_notification_editor_order_and_plain_language(self):
+        entries = next(field for field in MANIFEST["settings"] if field["key"] == "entries")
+        fields = entries["fields"]
+        self.assertEqual([field["key"] for field in fields], [
+            "enabled", "entity", "label", "advanced",
+            "valueEntity", "valueAttribute", "iconEntity",
+            "conditionEntity", "conditionAttribute", "rule", "operand",
+            "progressMode", "progressEntity", "progressAttribute", "showPercentage",
+            "liveIndicator",
+        ])
+        by_key = {field["key"]: field for field in fields}
+        for key, title in (
+            ("entity", "Primary entity"), ("label", "Notification label"),
+            ("valueEntity", "Status text source"), ("valueAttribute", "Status text attribute"),
+            ("iconEntity", "Icon source"), ("conditionEntity", "Visibility source"),
+            ("conditionAttribute", "Visibility attribute"), ("progressEntity", "Progress source"),
+        ):
+            self.assertEqual(by_key[key]["title"], title)
+        allowed_types = {"boolean", "entity", "string", "select"}
+        for field in fields:
+            self.assertIn(field["type"], allowed_types)
+            self.assertNotIn("group", field)
+            copy = field["title"] + " " + field.get("description", "")
+            for jargon in ("scalar", "top-level", "operand", "subscription"):
+                self.assertNotIn(jargon, copy.lower())
+        for key in ("valueAttribute", "conditionAttribute", "progressAttribute"):
+            help_text = by_key[key]["description"]
+            self.assertIn("Leave blank", help_text)
+            self.assertIn("state", help_text)
+            self.assertIn("attribute", help_text)
+        self.assertIn("0 to 100", by_key["progressEntity"]["description"])
 
 
 if __name__ == "__main__":

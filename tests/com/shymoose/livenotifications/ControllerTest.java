@@ -24,12 +24,15 @@ public final class ControllerTest {
         previewLifetime();
         invalidConfigurationAndFailures();
         progressSubscriptions();
+        displayScopesAndVisibility();
         stopAndRestart();
         System.out.println("ControllerTest: " + checkCount() + " lifecycle assertions passed");
     }
 
     private static void lifecycleAndReuse() throws Exception {
         Fixture f = new Fixture(Arrays.asList(row("sensor.a"), row("sensor.b"), row("sensor.a")));
+        f.settings.put("displayScope", "Screensaver only");
+        f.plugin.configure(f.settings);
         check(f.host.entities().isEmpty() && f.host.shows == 0, "inactive startup has no entity feed or overlay");
         check(f.host.subscriptions.containsAll(Arrays.asList("screen.state", "screensaver.state", "screensaver.view")),
             "fixed passive lifecycle subscriptions");
@@ -76,6 +79,8 @@ public final class ControllerTest {
 
     private static void initialReadRaces() throws Exception {
         Fixture f = new Fixture(Collections.singletonList(row("sensor.a")));
+        f.settings.put("displayScope", "Screensaver only");
+        f.plugin.configure(f.settings);
         f.plugin.onEvent("ks.screen.state", map("on", true));
         f.plugin.onEvent("ks.screensaver.state", map("active", true));
         f.host.complete("isScreenOn", false);
@@ -197,6 +202,54 @@ public final class ControllerTest {
         check(f.host.entities().size() == 1 && !f.host.statusError, "Off releases extra subscription and clears source warning");
         f.plugin.onEvent("ks.screen.state", map("on", false));
         check(f.host.entities().isEmpty() && selected(f.plugin) == null, "screen off clears live cue model and sources");
+    }
+
+    private static void displayScopesAndVisibility() throws Exception {
+        Fixture f = new Fixture(Collections.singletonList(row("sensor.a")));
+        f.host.complete("isScreensaverActive", false);
+        f.host.complete("isScreenOn", true);
+        f.scheduler.runReady();
+        check(f.host.entities().size() == 1 && !f.host.spec.onTop(), "Always shows in ordinary dashboard layer");
+        f.entity("sensor.a", "available", "fresh");
+        f.plugin.onEvent("ks.screensaver.state", map("active", true));
+        check(f.host.spec.onTop() && f.host.shows == 2 && f.host.hides == 1,
+            "screensaver entry replaces only the overlay layer");
+        check(selected(f.plugin).value.equals("fresh") && f.host.entities().size() == 1,
+            "Always retains its live feed across the layer transition");
+        f.plugin.onEvent("ks.screensaver.state", map("active", false));
+        check(!f.host.spec.onTop() && f.host.shows == 3, "screensaver exit restores ordinary dashboard layer");
+        f.settings.put("displayScope", "Screensaver only");
+        f.plugin.configure(f.settings);
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null, "screensaver-only pauses on dashboard");
+        f.plugin.onEvent("ks.screensaver.state", map("active", true));
+        check(f.host.entities().size() == 1 && selected(f.plugin) == null, "scope entry waits for fresh values");
+        f.entity("sensor.a", "available", "new");
+        f.settings.put("displayScope", "Dashboard only");
+        f.plugin.configure(f.settings);
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null, "dashboard-only pauses on screensaver");
+        f.plugin.onEvent("ks.screensaver.state", map("active", false));
+        check(f.host.entities().size() == 1 && !f.host.spec.onTop() && selected(f.plugin) == null,
+            "dashboard-only resumes below native surfaces with no stale flash");
+        f.entity("sensor.a", "available", "visible");
+        f.plugin.visibilityChanged(false);
+        f.scheduler.runReady();
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null && f.scheduler.pending() == 0,
+            "backgrounding stops feeds, content and timers");
+        f.plugin.visibilityChanged(true);
+        check(f.host.entities().size() == 1 && selected(f.plugin) == null, "foreground resume waits for fresh values");
+        f.settings.put("enabled", false);
+        f.plugin.configure(f.settings);
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null, "global disabled blocks dashboard live mode");
+        f.settings.put("displayScope", "Always");
+        f.plugin.configure(f.settings);
+        f.plugin.onEvent("ks.screensaver.state", map("active", true));
+        check(f.host.entities().isEmpty(), "global disabled blocks Always and screensaver live mode");
+        f.settings.put("preview", true);
+        f.plugin.configure(f.settings);
+        check(selected(f.plugin).label.startsWith("Preview - "), "explicit sample preview remains separate from live enable");
+        f.plugin.visibilityChanged(false);
+        check(selected(f.plugin) == null && Boolean.FALSE.equals(f.host.saved.get("preview")),
+            "backgrounding stops and clears preview");
     }
 
     private static NotificationModel.Item selected(LiveNotificationsPlugin plugin) throws Exception {

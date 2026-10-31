@@ -43,7 +43,9 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
     private NotificationModel.Config config;
     private NotificationModel.Item selected;
     private NotificationChip chip;
+    private ActivityVisibility activityVisibility;
     private boolean running, shown, screenOn, screensaver, preview, previewSetting;
+    private boolean foreground = true, overlayOnTop;
     private int screenRevision, saverRevision, session, overlayRevision;
     private String configError, runtimeError, lastStatus;
     private boolean lastStatusError;
@@ -68,6 +70,7 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         running = true;
         session++;
         screenOn = screensaver = preview = previewSetting = shown = false;
+        foreground = true;
         screenRevision = saverRevision = 0;
         configError = runtimeError = lastStatus = null;
         chip = null;
@@ -215,7 +218,7 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         synchronized (this) {
             if (!running || chip == null || config == null || runtimeError != null) return;
             try {
-                chip.show(selected, config.motion, config.textScale);
+                chip.show(selected, config.motion, config.textScale, config.darkSurface(screensaver));
             } catch (RuntimeException | LinkageError error) {
                 fault("Cannot render the notification chip", error);
             }
@@ -230,10 +233,21 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         }
     }
 
+    synchronized void visibilityChanged(boolean visible) {
+        if (!running || foreground == visible) return;
+        foreground = visible;
+        try {
+            if (!visible) stopPreview();
+            refresh();
+        } catch (RuntimeException | LinkageError error) {
+            fault("Cannot update notification visibility", error);
+        }
+    }
+
     private void refresh() {
         main.removeCallbacks(rotate);
-        boolean active = runtimeError == null && config != null && screenOn
-            && (preview || (config.enabled && screensaver && !config.entries.isEmpty()));
+        boolean active = runtimeError == null && config != null && screenOn && foreground
+            && (preview || (config.enabled && config.allows(screensaver) && !config.entries.isEmpty()));
         boolean watch = active && !preview;
         syncSources(watch ? config.sources : Collections.emptySet());
         if (!active) {
@@ -244,6 +258,7 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
             List<NotificationModel.Item> items = preview ? NotificationModel.samples()
                 : NotificationModel.eligible(config, snapshots, Locale.getDefault());
             selected = rotation.select(items, clock.now(), config.dwellMs);
+            if (shown && overlayOnTop != screensaver) hide();
             if (!shown) show();
             main.removeCallbacks(render);
             main.post(render);
@@ -273,18 +288,30 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         final int revision = ++overlayRevision;
         final boolean adaptiveWidth = config.autoWidth;
         final int textScale = config.textScale;
+        final boolean onTop = screensaver;
+        final boolean darkSurface = config.darkSurface(screensaver);
+        final int currentSession = session;
         OverlaySpec spec = OverlaySpec.at(anchor(config.anchor))
             .size(config.autoWidth ? OverlaySpec.WRAP : config.width, OverlaySpec.WRAP)
             .inset(12).offset(config.offsetX, config.offsetY)
-            .onTop(true).touchable(false).closeOnBack(false);
+            .onTop(onTop).touchable(false).closeOnBack(false);
         shown = true;
+        overlayOnTop = onTop;
         host.showOverlay(OVERLAY, spec, new OverlayFactory() {
             @Override public View create(Context context, KsTheme theme) {
                 synchronized (LiveNotificationsPlugin.this) {
-                    NotificationChip created = new NotificationChip(context, theme, adaptiveWidth, textScale);
+                    NotificationChip created = new NotificationChip(context, theme, adaptiveWidth, textScale, darkSurface);
                     if (running && shown && overlayRevision == revision && runtimeError == null) {
+                        if (activityVisibility == null) {
+                            activityVisibility = new ActivityVisibility(visible -> main.post(() -> {
+                                synchronized (LiveNotificationsPlugin.this) {
+                                    if (running && session == currentSession) visibilityChanged(visible);
+                                }
+                            }));
+                        }
+                        activityVisibility.attach(context);
                         chip = created;
-                        created.show(selected, config.motion, config.textScale);
+                        created.show(selected, config.motion, config.textScale, config.darkSurface(screensaver));
                     }
                     return created;
                 }
@@ -324,8 +351,11 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
             message = "Add a notification, or enable the sample-data preview to check placement.";
         } else if (!config.enabled) {
             message = "Live overlay is off. Your screensaver settings are unchanged.";
-        } else if (!screenOn || !screensaver) {
-            message = "Waiting for an active screensaver and screen. Home Assistant subscriptions are paused.";
+        } else if (!screenOn || !foreground) {
+            message = "Waiting for the screen and Kiosk Satellite to be visible. Live sources are paused.";
+        } else if (!config.allows(screensaver)) {
+            message = "Waiting for " + (config.displayScope.equals("Screensaver only")
+                ? "the screensaver" : "the dashboard") + ". Live sources are paused.";
         } else {
             int problems = 0;
             String first = null;
@@ -389,8 +419,11 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         main.removeCallbacks(endPreview);
         main.removeCallbacks(render);
         NotificationChip previous = chip;
+        ActivityVisibility previousVisibility = activityVisibility;
+        activityVisibility = null;
         chip = null;
         if (previous != null) main.post(previous::dispose);
+        if (previousVisibility != null) main.post(previousVisibility::dispose);
         shown = preview = previewSetting = false;
         subscribed.clear();
         snapshots.clear();

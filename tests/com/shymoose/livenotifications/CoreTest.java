@@ -28,6 +28,16 @@ public final class CoreTest {
         check(empty.entries.isEmpty() && empty.sources.isEmpty(), "empty config");
         check(empty.dwellMs == 10_000 && empty.width == 320 && empty.motion, "design defaults");
         check(empty.autoWidth && empty.textScale == 100, "adaptive width and neutral default scale");
+        check(empty.allows(false) && empty.allows(true), "new and missing scope settings default to Always");
+        check(!empty.darkSurface(false) && !empty.darkSurface(true), "Native default and Default screensaver inheritance");
+        NotificationModel.Config inherited = new NotificationModel.Config(
+            map("style", "Glass", "screensaverStyle", "Default"));
+        check(inherited.darkSurface(false) && inherited.darkSurface(true), "screensaver can inherit the general style");
+        NotificationModel.Config card = new NotificationModel.Config(
+            map("style", "Glass", "screensaverStyle", "Native"));
+        check(card.darkSurface(false) && !card.darkSurface(true), "screensaver override is independent of scope and general style");
+        check(!config(Collections.singletonList(row("sensor.a"))).entries.get(0).liveIndicator,
+            "new and missing live-indicator settings stay off");
         check(new NotificationModel.Config(map("textScale", 120)).textScale == 120,
             "explicit saved device scale is preserved");
         check(!new NotificationModel.Config(map("motion", "None")).motion,
@@ -178,6 +188,8 @@ public final class CoreTest {
         check(NotificationModel.clean(String.join("", Collections.nCopies(300, "x"))).length() == 160, "bounded text");
         check(NotificationModel.samples().stream().allMatch(sample -> sample.label.startsWith("Preview - ")),
             "sample content is clearly distinguished");
+        check(NotificationModel.samples().stream().anyMatch(sample -> Double.valueOf(65).equals(sample.progress)),
+            "preview includes a sample progress bar without reading live data");
     }
 
     private static void orderedRotation() {
@@ -219,6 +231,11 @@ public final class CoreTest {
         check(NotificationModel.progress("-1", "%") == null, "negative HA percent rejected");
         check(NotificationModel.progress("12", "min") == null, "ETA minutes are not progress");
         check(NotificationModel.progress("42", null) == null, "arbitrary number is not progress");
+        StringBuilder ambiguous = new StringBuilder("40% ");
+        for (int i = 0; i < 180; i++) ambiguous.append("x");
+        ambiguous.append(" 60%");
+        check(NotificationModel.progress(ambiguous.toString(), null) == null,
+            "ambiguity beyond the displayed text limit must not become valid progress");
         Map<String, Object> row = row("input_text.demo");
         row.put("advanced", true);
         row.put("valueEntity", "input_number.percent");
@@ -301,6 +318,8 @@ public final class CoreTest {
         NotificationModel.Config config = config(Collections.singletonList(row));
         check(config.entries.get(0).evaluate(states, Locale.GERMANY).value.isEmpty(),
             "valid bar can replace localized percentage-only text");
+        check(config.entries.get(0).evaluate(states, new Locale("ar")).value.isEmpty(),
+            "percentage suppression also handles localized digits and decimal separators");
         states.put("sensor.progress", snapshot("available", "Cleaning - 42% complete", map()));
         check(config.entries.get(0).evaluate(states, Locale.US).value.equals("Cleaning"),
             "hiding percentage preserves useful embedded activity text");

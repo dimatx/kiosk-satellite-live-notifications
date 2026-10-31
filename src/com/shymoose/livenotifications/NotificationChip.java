@@ -18,6 +18,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -34,15 +35,18 @@ final class NotificationChip extends FrameLayout {
     private AnimatorSet transition;
     private int contentHeight;
     private final boolean adaptiveWidth;
+    private boolean darkSurface;
     private int textScale;
     private final View indicator;
     private ObjectAnimator pulse;
     private boolean lastMotion;
+    private final ViewTreeObserver.OnGlobalLayoutListener redrawAfterLayout = this::postInvalidateOnAnimation;
 
-    NotificationChip(Context context, KsTheme theme, boolean adaptiveWidth, int textScale) {
+    NotificationChip(Context context, KsTheme theme, boolean adaptiveWidth, int textScale, boolean darkSurface) {
         super(context);
         this.theme = theme;
         this.adaptiveWidth = adaptiveWidth;
+        this.darkSurface = darkSurface;
         this.textScale = textScale;
         setClipChildren(true);
         setClipToPadding(true);
@@ -66,11 +70,13 @@ final class NotificationChip extends FrameLayout {
 
     void restyle(KsTheme theme) {
         this.theme = theme;
-        GradientDrawable surface = new GradientDrawable();
-        // A screensaver can be a bright photo even while KS is in its light theme.
-        surface.setColor(Color.argb(226, 19, 22, 27));
-        surface.setCornerRadius(theme.px(theme.radiusRow()));
-        surface.setStroke(theme.px(1), Color.argb(28, 255, 255, 255));
+        GradientDrawable surface = theme.card();
+        if (darkSurface) {
+            // Photos need stable contrast even while KS uses its light theme.
+            surface.setColor(Color.argb(226, 19, 22, 27));
+            surface.setCornerRadius(theme.px(theme.radiusRow()));
+            surface.setStroke(theme.px(1), Color.argb(28, 255, 255, 255));
+        }
         setBackground(surface);
         first.style();
         second.style();
@@ -78,6 +84,7 @@ final class NotificationChip extends FrameLayout {
         lightSize.topMargin = theme.px(6);
         lightSize.setMarginEnd(theme.px(6));
         indicator.setLayoutParams(lightSize);
+        ((LiveLight) indicator).setColor(darkSurface ? Color.rgb(246, 251, 249) : theme.color("primary"));
         contentHeight = Math.max(theme.px(84),
             first.label.getLineHeight() + first.value.getLineHeight() + theme.px(34));
         requestLayout();
@@ -98,10 +105,11 @@ final class NotificationChip extends FrameLayout {
         requestLayout();
     }
 
-    void show(NotificationModel.Item next, boolean motion, int scale) {
+    void show(NotificationModel.Item next, boolean motion, int scale, boolean darkSurface) {
         lastMotion = motion;
-        if (textScale != scale) {
+        if (textScale != scale || this.darkSurface != darkSurface) {
             textScale = scale;
+            this.darkSurface = darkSurface;
             restyle(theme);
         }
         if (next == null) {
@@ -112,7 +120,7 @@ final class NotificationChip extends FrameLayout {
         }
         boolean changed = item != null && item.id != next.id;
         boolean wasVisible = getVisibility() == VISIBLE;
-        if (!changed && transition != null) {
+        if (!changed && transition != null && motion && ValueAnimator.areAnimatorsEnabled()) {
             item = next;
             current.bind(next);
             updateIndicator();
@@ -184,10 +192,13 @@ final class NotificationChip extends FrameLayout {
 
     @Override protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        // Wrapped overlays start in a 1px texture; repaint when KS lays out the resized window.
+        getViewTreeObserver().addOnGlobalLayoutListener(redrawAfterLayout);
         updateIndicator();
     }
 
     @Override protected void onDetachedFromWindow() {
+        getViewTreeObserver().removeOnGlobalLayoutListener(redrawAfterLayout);
         stopPulse();
         super.onDetachedFromWindow();
     }
@@ -265,14 +276,16 @@ final class NotificationChip extends FrameLayout {
             icon.setPadding(iconPadding, iconPadding, iconPadding, iconPadding);
             label.setTypeface(theme.typeface(400));
             label.setTextSize(13 * scale);
-            label.setTextColor(Color.rgb(205, 210, 218));
+            label.setTextColor(darkSurface ? Color.rgb(205, 210, 218) : theme.color("onSurfaceVariant"));
             value.setTypeface(theme.typeface(600));
             value.setTextSize(17 * scale);
-            value.setTextColor(Color.rgb(248, 249, 251));
+            value.setTextColor(darkSurface ? Color.rgb(248, 249, 251) : theme.color("onSurface"));
             GradientDrawable circle = new GradientDrawable();
             circle.setShape(GradientDrawable.OVAL);
-            circle.setColor(Color.argb(24, 255, 255, 255));
+            circle.setColor(darkSurface ? Color.argb(24, 255, 255, 255) : theme.color("surfaceContainerHighest"));
             icon.setBackground(circle);
+            progress.colors(darkSurface ? Color.argb(38, 255, 255, 255) : theme.color("outlineVariant"),
+                darkSurface ? Color.rgb(211, 221, 234) : theme.color("primary"));
         }
 
         void bind(NotificationModel.Item item) {
@@ -282,7 +295,7 @@ final class NotificationChip extends FrameLayout {
             Drawable drawable = theme.icon(item.icon, "onSurface");
             if (drawable == null) drawable = theme.icon("mdi:information-outline", "onSurface");
             if (drawable != null) drawable = drawable.mutate();
-            if (drawable != null) drawable.setTint(Color.rgb(225, 230, 238));
+            if (drawable != null) drawable.setTint(darkSurface ? Color.rgb(225, 230, 238) : theme.color("onSurface"));
             icon.setImageDrawable(drawable);
         }
     }
@@ -290,17 +303,25 @@ final class NotificationChip extends FrameLayout {
     private static final class LiveLight extends View {
         private final Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint core = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private int color;
 
         LiveLight(Context context) {
             super(context);
-            core.setColor(Color.rgb(246, 251, 249));
             setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
+
+        void setColor(int color) {
+            this.color = color;
+            core.setColor(color);
+            onSizeChanged(getWidth(), getHeight(), getWidth(), getHeight());
+            invalidate();
         }
 
         @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
             if (width > 0 && height > 0) {
                 halo.setShader(new RadialGradient(width / 2f, height / 2f, Math.min(width, height) / 2f,
-                    new int[]{0xB0EAF5F0, 0x70EAF5F0, Color.TRANSPARENT},
+                    new int[]{Color.argb(176, Color.red(color), Color.green(color), Color.blue(color)),
+                        Color.argb(112, Color.red(color), Color.green(color), Color.blue(color)), Color.TRANSPARENT},
                     new float[]{0, 0.4f, 1}, Shader.TileMode.CLAMP));
             }
         }
@@ -315,6 +336,7 @@ final class NotificationChip extends FrameLayout {
     private static final class ProgressTrack extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private float percent;
+        private int trackColor, fillColor;
 
         ProgressTrack(Context context) {
             super(context);
@@ -327,11 +349,17 @@ final class NotificationChip extends FrameLayout {
             invalidate();
         }
 
+        void colors(int track, int fill) {
+            trackColor = track;
+            fillColor = fill;
+            invalidate();
+        }
+
         @Override protected void onDraw(Canvas canvas) {
             float radius = getHeight() / 2f;
-            paint.setColor(Color.argb(38, 255, 255, 255));
+            paint.setColor(trackColor);
             canvas.drawRoundRect(0, 0, getWidth(), getHeight(), radius, radius, paint);
-            paint.setColor(Color.rgb(211, 221, 234));
+            paint.setColor(fillColor);
             canvas.drawRoundRect(0, 0, getWidth() * percent / 100f, getHeight(), radius, radius, paint);
         }
     }

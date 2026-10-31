@@ -21,7 +21,7 @@ final class NotificationModel {
     private static final Pattern PERCENT = Pattern.compile(
         "(?<![\\w.,])([-+]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+))\\s*%");
     private static final Pattern DISPLAY_PERCENT = Pattern.compile(
-        "(?<![\\w.,])[-+]?(?:[0-9]+(?:[.,][0-9]+)?|\\.[0-9]+)\\s*%"
+        "(?<![\\p{L}\\p{N}.,\\u066B])[-+]?(?:[\\p{Nd}]+(?:[.,\\u066B][\\p{Nd}]+)?|\\.[\\p{Nd}]+)\\s*%"
             + "(?:\\s+(?i:complete|completed|done)\\b)?");
     static final String[] RULES = {
         "Available", "Equals", "Does not equal", "Greater than", "At least", "Less than", "At most"
@@ -33,12 +33,17 @@ final class NotificationModel {
     static final class Config {
         final boolean enabled, motion, autoWidth;
         final int dwellMs, offsetX, offsetY, width, textScale;
-        final String anchor;
+        final String anchor, displayScope, style, screensaverStyle;
         final List<Entry> entries;
         final Set<String> sources;
 
         Config(Map<String, Object> settings) {
             enabled = bool(settings, "enabled", true);
+            displayScope = choice(settings, "displayScope", "Always",
+                new String[]{"Always", "Screensaver only", "Dashboard only"});
+            style = choice(settings, "style", "Native", new String[]{"Native", "Glass"});
+            screensaverStyle = choice(settings, "screensaverStyle", "Default",
+                new String[]{"Default", "Native", "Glass"});
             motion = choice(settings, "motion", "Roller", new String[]{"Roller", "None"}).equals("Roller");
             dwellMs = integer(settings, "dwell", 10, 3, 120) * 1000;
             offsetX = integer(settings, "offsetX", 0, -2048, 2048);
@@ -81,6 +86,17 @@ final class NotificationModel {
             return other != null && anchor.equals(other.anchor) && autoWidth == other.autoWidth
                 && (autoWidth || width == other.width)
                 && offsetX == other.offsetX && offsetY == other.offsetY;
+        }
+
+        boolean allows(boolean screensaver) {
+            return displayScope.equals("Always")
+                || displayScope.equals(screensaver ? "Screensaver only" : "Dashboard only");
+        }
+
+        boolean darkSurface(boolean screensaver) {
+            String selected = screensaver && !screensaverStyle.equals("Default")
+                ? screensaverStyle : style;
+            return selected.equals("Glass");
         }
     }
 
@@ -227,7 +243,7 @@ final class NotificationModel {
         List<Item> result = new ArrayList<>();
         result.add(new Item(0, "Preview - Living room", "22.5 \u00b0C", "mdi:thermometer"));
         result.add(new Item(1, "Preview - Front door", "Open", "mdi:door-open"));
-        result.add(new Item(2, "Preview - Washing machine", "12 min remaining", "mdi:washing-machine"));
+        result.add(new Item(2, "Preview - Washing machine", "12 min remaining", "mdi:washing-machine", 65.0, false));
         return result;
     }
 
@@ -238,7 +254,7 @@ final class NotificationModel {
     static Double progress(String raw, String unit) {
         BigDecimal value = "%".equals(unit) ? decimal(raw) : null;
         if (value == null && raw != null) {
-            Matcher match = PERCENT.matcher(clean(raw));
+            Matcher match = PERCENT.matcher(raw);
             if (!match.find()) return null;
             value = decimal(match.group(1));
             if (match.find()) return null;
