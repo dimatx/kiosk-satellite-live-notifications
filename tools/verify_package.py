@@ -59,8 +59,10 @@ def verify(path):
             require(names and all(name.startswith("classes") and name.endswith(".dex") for name in names),
                     "plugin.jar must contain only DEX files")
             descriptors = [name for dex in names for name in dex_classes(jar.read(dex))]
-            require(descriptors and all(name.startswith("Lcom/shymoose/livenotifications/") for name in descriptors),
-                    "SDK, test or unrelated implementation classes were packaged")
+            unexpected = [name for name in descriptors if not name.startswith("Lcom/shymoose/livenotifications/")]
+            require(descriptors and not unexpected,
+                    "SDK, test or unrelated implementation classes were packaged: "
+                    + (", ".join(unexpected[:10]) if unexpected else "no class definitions"))
             entry = "L" + manifest["entryClass"].replace(".", "/") + ";"
             require(entry in descriptors, "Entrypoint is missing from DEX")
     print(f"Verified {path.name}: {path.stat().st_size:,} bytes, {len(descriptors)} plugin classes, "

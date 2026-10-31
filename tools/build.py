@@ -42,6 +42,7 @@ try:
     platform = android_platform(sdk_root, args.android_platform)
 except ValueError as error:
     raise SystemExit(str(error)) from error
+print(f'Android platform: {platform.parent.name}; DEX compiler build-tools: {build_tools[-1].parent.name}', flush=True)
 out = plugin / 'dist'
 out.mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='kiosk-plugin-') as temp:
