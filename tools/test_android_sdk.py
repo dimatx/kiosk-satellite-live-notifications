@@ -1,9 +1,10 @@
 """Regression coverage for platform names found on GitHub Actions runners."""
 from pathlib import Path
+import os
 import tempfile
 import unittest
 
-from android_sdk import android_platform
+from android_sdk import android_d8, android_platform
 
 
 class AndroidPlatformTest(unittest.TestCase):
@@ -46,6 +47,46 @@ class AndroidPlatformTest(unittest.TestCase):
             android_platform(self.sdk)
         with self.assertRaisesRegex(ValueError, 'numeric version'):
             android_platform(self.sdk, '../35')
+
+
+class AndroidBuildToolsTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.sdk = Path(self.directory.name)
+
+    def install(self, version):
+        compiler = self.sdk / 'build-tools' / version / ('d8.bat' if os.name == 'nt' else 'd8')
+        compiler.parent.mkdir(parents=True)
+        compiler.touch()
+        return compiler
+
+    def test_release_compiler_is_selected_even_with_newer_preinstalls(self):
+        expected = self.install('35.0.0')
+        newest = self.install('37.0.0')
+        self.assertEqual(android_d8(self.sdk, '35.0.0'), expected)
+        self.assertEqual(android_d8(self.sdk), newest)
+
+    def test_compiler_versions_sort_numerically(self):
+        self.install('35.9.0')
+        expected = self.install('35.10.0')
+        self.assertEqual(android_d8(self.sdk), expected)
+
+    def test_preview_directories_do_not_break_discovery(self):
+        expected = self.install('35.0.0')
+        self.install('37.0.0-rc3')
+        self.assertEqual(android_d8(self.sdk), expected)
+
+    def test_missing_release_compiler_never_falls_back(self):
+        self.install('37.0.0')
+        with self.assertRaisesRegex(ValueError, 'Install Android build-tools 35.0.0'):
+            android_d8(self.sdk, '35.0.0')
+
+    def test_missing_tools_and_invalid_versions_have_clear_errors(self):
+        with self.assertRaisesRegex(ValueError, 'Install a numbered Android SDK build-tools'):
+            android_d8(self.sdk)
+        with self.assertRaisesRegex(ValueError, 'numeric version'):
+            android_d8(self.sdk, '../35.0.0')
 
 
 if __name__ == '__main__':

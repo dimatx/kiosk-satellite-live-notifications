@@ -7,7 +7,7 @@ and `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) to your installed toolchains.
 
 ```powershell
 python tools\test.py
-python tools\build.py --android-platform 35
+python tools\build.py --android-platform 35 --android-build-tools 35.0.0
 python tools\verify_package.py
 git diff --check
 ```
@@ -31,7 +31,7 @@ or private validation artifacts. Use simulated values for public documentation.
 Publication requires explicit authorization. Nothing in the local build commands
 creates a tag, pushes, or publishes a release.
 
-1. Review the [README acceptance checks](README.md#on-device-acceptance-checks).
+1. Review the [device acceptance checks](docs/reference.md#on-device-acceptance-checks).
    Record actual device coverage and remaining gaps. Check both native settings
    and Remote Admin, all three display scopes, both styles/inheritance, progress,
    screen-off/background resume, and reduced motion.

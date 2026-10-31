@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import zipfile
 
-from android_sdk import android_platform
+from android_sdk import android_d8, android_platform
 from plugin_manifest import build_manifest
 from plugin_assets import asset_files, MAX_PACKAGE_BYTES
 
@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('plugin', nargs='?', default=str(ROOT), help='Path to the plugin repository')
 parser.add_argument('--version', help='Package version override, normally supplied by the release tag')
 parser.add_argument('--android-platform', help='Installed platform version, for example 35 or 37.0')
+parser.add_argument('--android-build-tools', help='Installed DEX compiler version, for example 35.0.0')
 args = parser.parse_args()
 plugin = Path(args.plugin).resolve()
 try:
@@ -34,15 +35,12 @@ sdk_root = Path(os.environ.get('ANDROID_HOME', os.environ.get('ANDROID_SDK_ROOT'
 java_root = os.environ.get('JAVA_HOME')
 def java_tool(name):
     return str(Path(java_root) / 'bin' / name) if java_root else name
-# Windows ships d8 as d8.bat.
-build_tools = sorted([*(sdk_root / 'build-tools').glob('*/d8'), *(sdk_root / 'build-tools').glob('*/d8.bat')], key=lambda p: tuple(int(v) for v in p.parent.name.split('.') if v.isdigit()))
-if not build_tools:
-    raise SystemExit('Set ANDROID_HOME to an Android SDK with build-tools installed.')
 try:
     platform = android_platform(sdk_root, args.android_platform)
+    compiler = android_d8(sdk_root, args.android_build_tools)
 except ValueError as error:
     raise SystemExit(str(error)) from error
-print(f'Android platform: {platform.parent.name}; DEX compiler build-tools: {build_tools[-1].parent.name}', flush=True)
+print(f'Android platform: {platform.parent.name}; DEX compiler build-tools: {compiler.parent.name}', flush=True)
 out = plugin / 'dist'
 out.mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='kiosk-plugin-') as temp:
@@ -55,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix='kiosk-plugin-') as temp:
     sdk_jar = out / 'kiosk-plugin-sdk-1.jar'
     subprocess.run([java_tool('jar'), 'cf', str(sdk_jar), '-C', str(sdk_classes), '.'], check=True)
     subprocess.run([java_tool('javac'), '--release', '8', '-cp', os.pathsep.join([str(sdk_jar), str(platform)]), '-d', str(classes), *map(str, sorted((plugin / 'src').rglob('*.java')))], check=True)
-    subprocess.run([str(build_tools[-1]), '--min-api', str(manifest['minAndroidSdk']), '--lib', str(platform), '--classpath', str(sdk_jar), '--output', str(dex), *map(str, sorted(classes.rglob('*.class')))], check=True)
+    subprocess.run([str(compiler), '--min-api', str(manifest['minAndroidSdk']), '--lib', str(platform), '--classpath', str(sdk_jar), '--output', str(dex), *map(str, sorted(classes.rglob('*.class')))], check=True)
     jar = temp / 'plugin.jar'
     def add(archive, name, data):
         info = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))

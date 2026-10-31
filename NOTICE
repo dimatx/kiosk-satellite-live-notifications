@@ -14,7 +14,7 @@ tools/test_plugin_assets.py
 tools/test_plugin_manifest.py
 https://github.com/jxlarrea/kiosk-satellite-plugins
 Pinned source revision: 84e7abab40d54986cec4a3deb9ea3f944513393a
-Build tools include repository-specific validation and toolchain diagnostics.
+Build tools include repository-specific validation, toolchain selection and diagnostics.
 Their SPDX headers and the upstream Apache license are retained.
 The host provides SDK classes at runtime; they are not packaged.
 

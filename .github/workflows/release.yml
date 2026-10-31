@@ -31,7 +31,7 @@ jobs:
       - name: Test
         run: python tools/test.py
       - name: Build tagged version
-        run: python tools/build.py --android-platform 35 --version "${GITHUB_REF_NAME#v}"
+        run: python tools/build.py --android-platform 35 --android-build-tools 35.0.0 --version "${GITHUB_REF_NAME#v}"
       - name: Verify package
         run: python tools/verify_package.py
       - name: Attach verified assets to existing release

@@ -27,7 +27,11 @@ Tools; KS's repository installation flow intentionally excludes prereleases.
 - Device acceptance on Android 8.1 and 17, including native-resolution settled
   icon/text/progress checks. The Android 8.1 pass also covers portrait, light KS
   theme, an Image URL photo screensaver, isolated unavailable/recovery and a
-  device-local HA connection failure/recovery. See README for the exact limits.
+  device-local HA connection failure/recovery. See the device coverage in
+  `docs/reference.md` for the exact limits.
+- Explicit platform and DEX compiler selection in both workflows keeps release
+  builds on the verified Android 35/build-tools 35.0.0 toolchain, even when
+  GitHub runners have newer compilers preinstalled.
 
 Earlier 0.1.0–0.1.2 versions were local developer iterations, not public releases.
 When updating those builds, missing display scope defaults to Always, general

@@ -25,7 +25,7 @@ jobs:
       - name: Test production sources and lifecycle
         run: python tools/test.py
       - name: Build developer ZIP
-        run: python tools/build.py --android-platform 35
+        run: python tools/build.py --android-platform 35 --android-build-tools 35.0.0
       - name: Verify package
         run: python tools/verify_package.py
       - uses: actions/upload-artifact@v4
