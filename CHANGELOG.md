@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Horizontal and vertical placement offsets use exact signed numeric entry
+  instead of wide sliders, preserving saved values and the full 1 dp range.
+
 ## 0.1.5
 
 - Vacuums without an explicit Home Assistant icon now use a robot-vacuum icon

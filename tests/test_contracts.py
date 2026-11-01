@@ -43,6 +43,19 @@ class ContractsTest(unittest.TestCase):
                     self.assertLessEqual(field["default"], field["max"])
         verify(MANIFEST["settings"])
 
+    def test_offsets_use_exact_signed_numeric_entry(self):
+        settings = {field["key"]: field for field in MANIFEST["settings"]}
+        for key, default in (("offsetX", 0), ("offsetY", -32)):
+            field = settings[key]
+            self.assertEqual(field["type"], "number")
+            self.assertEqual(field["input"], "field")
+            self.assertEqual(field["default"], default)
+            self.assertEqual((field["min"], field["max"], field["step"]), (-2048, 2048, 1))
+            self.assertEqual(field["unit"], "dp")
+            self.assertIn("whole number", field["description"])
+        self.assertEqual([field["key"] for field in MANIFEST["settings"]
+                          if field.get("input") == "field"], ["offsetX", "offsetY"])
+
     def test_no_screensaver_control_or_touch_actions(self):
         source = (ROOT / "src/com/shymoose/livenotifications/LiveNotificationsPlugin.java").read_text()
         for disallowed in ("setContentInsets(", "publishScreensaver", "startScreensaver",

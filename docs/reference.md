@@ -173,6 +173,11 @@ width. Adaptive width responds to orientation; Custom keeps your explicit
 220–640 dp width. Positive offsets move right/down; negative offsets move left/up. KS caps
 the chip to available screen space and keeps it within a 12 dp edge inset.
 
+Horizontal and vertical offsets use exact numeric entry in 1 dp increments,
+from -2048 to 2048 dp. Tap the current value on the kiosk to edit it; in Remote
+Admin, type the value and leave the field or press Enter. Existing saved offsets
+keep their values.
+
 **There is no automatic clock/widget avoidance.** The current SDK does not expose
 stock clock bounds, and the clock can move independently. Check your screensaver's
 different layouts using preview and leave adequate space. The plugin does not

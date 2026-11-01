@@ -48,6 +48,18 @@ public final class CoreTest {
         Map<String, Object> customWidth = map("widthMode", "Custom", "width", 400, "textScale", 150);
         NotificationModel.Config custom = new NotificationModel.Config(customWidth);
         check(!custom.autoWidth && custom.width == 400 && custom.textScale == 150, "explicit width and type size preserved");
+        for (int offset : new int[]{-2048, -33, -32, -1, 0, 1, 20, 21, 2048}) {
+            NotificationModel.Config placement = new NotificationModel.Config(
+                map("offsetX", offset, "offsetY", offset));
+            check(placement.offsetX == offset && placement.offsetY == offset,
+                "typed signed offsets preserve exact whole-dp values: " + offset);
+        }
+        rejects(() -> new NotificationModel.Config(map("offsetX", 20.5)),
+            "fractional horizontal offset is rejected");
+        rejects(() -> new NotificationModel.Config(map("offsetY", -2049)),
+            "vertical offset below the unchanged range is rejected");
+        rejects(() -> new NotificationModel.Config(map("offsetX", 2049)),
+            "horizontal offset above the unchanged range is rejected");
         List<Map<String, Object>> rows = new ArrayList<>();
         for (int i = 0; i < 32; i++) rows.add(row("sensor.shared"));
         check(config(rows).sources.size() == 1, "duplicate sources share one subscription");

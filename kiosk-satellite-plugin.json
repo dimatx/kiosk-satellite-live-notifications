@@ -105,13 +105,15 @@
     },
     {
       "key": "offsetX", "title": "Horizontal offset", "type": "number", "default": 0,
+      "input": "field",
       "min": -2048, "max": 2048, "step": 1, "unit": "dp", "group": "Placement",
-      "description": "Positive moves right; negative moves left. KS keeps the chip on screen."
+      "description": "Enter a whole number in dp. Positive moves right; negative moves left. KS keeps the chip on screen."
     },
     {
       "key": "offsetY", "title": "Vertical offset", "type": "number", "default": -32,
+      "input": "field",
       "min": -2048, "max": 2048, "step": 1, "unit": "dp", "group": "Placement",
-      "description": "Positive moves down; negative moves up."
+      "description": "Enter a whole number in dp. Positive moves down; negative moves up."
     },
     {
       "key": "widthMode", "title": "Width", "type": "select", "default": "Adaptive",
