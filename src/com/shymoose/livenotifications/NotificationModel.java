@@ -334,7 +334,7 @@ final class NotificationModel {
     }
 
     static String clean(String input) {
-        String value = input.replaceAll("[\\p{Cntrl}\\p{Cf}]", " ").trim();
+        String value = input.replaceAll("[\\p{Z}\\p{Cntrl}\\p{Cf}\\u0085]+", " ").trim();
         return value.length() > 160 ? value.substring(0, 159) + "\u2026" : value;
     }
 

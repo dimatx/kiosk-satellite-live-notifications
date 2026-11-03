@@ -16,6 +16,7 @@ public final class CoreTest {
         defaultsAndLimits();
         predicatesAndAvailability();
         overridesAndFormatting();
+        displayWhitespace();
         vacuumSources();
         percentageProgress();
         configurableProgressAndIndicator();
@@ -231,6 +232,53 @@ public final class CoreTest {
             "sample content is clearly distinguished");
         check(NotificationModel.samples().stream().anyMatch(sample -> Double.valueOf(65).equals(sample.progress)),
             "preview includes a sample progress bar without reading live data");
+    }
+
+    private static void displayWhitespace() {
+        String eta = "Home in\n            \n          \n            \n            \n              7 min";
+        check(NotificationModel.clean(eta).equals("Home in 7 min"),
+            "indented multiline ETA does not consume display width with invisible spaces");
+        for (String space : new String[]{" ", "\t", "\r\n", "\f", "\u000b", "\u0085",
+            "\u00a0", "\u2003", "\u2028", "\u2029", "\u202f", "\u3000"}) {
+            check(NotificationModel.clean(space + "Home" + space + space + "in 7 min" + space)
+                .equals("Home in 7 min"), "display whitespace collapses and trims: " + (int) space.charAt(0));
+        }
+        check(NotificationModel.clean(" \n\u202e\t ").isEmpty(), "whitespace-only display is empty");
+        check(NotificationModel.clean("A  \u202e\nB").equals("A B"),
+            "existing control/format sanitization shares the whitespace collapse");
+        check(NotificationModel.clean("Home in 7 min").equals("Home in 7 min"),
+            "ordinary single-line text is unchanged");
+        String padding = String.join("", Collections.nCopies(200, " \n"));
+        check(NotificationModel.clean("Home in" + padding + "7 min").equals("Home in 7 min"),
+            "normalization precedes the display length cap");
+        String atLimit = String.join("", Collections.nCopies(160, "x"));
+        check(NotificationModel.clean(padding + atLimit + padding).equals(atLimit),
+            "exactly 160 meaningful characters are retained after trimming");
+        check(NotificationModel.clean(atLimit + padding + "tail").equals(atLimit.substring(0, 159) + "\u2026"),
+            "long normalized text keeps the existing 160-character ellipsis cap");
+
+        Map<String, Object> row = row("sensor.eta");
+        row.put("rule", "Equals");
+        row.put("operand", eta);
+        Map<String, NotificationModel.Snapshot> states = states("sensor.eta",
+            snapshot("available", eta, map("friendly_name", " \n Model\t Y \u00a0")));
+        NotificationModel.Item item = config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US);
+        check(item != null && item.label.equals("Model Y") && item.value.equals("Home in 7 min"),
+            "real state formatting and friendly name share normalization after raw equality succeeds");
+        check(states.get("sensor.eta").scalar("").equals(eta), "raw HA snapshot remains untouched");
+        row.put("operand", "Home in 7 min");
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US) == null,
+            "display normalization does not change exact visibility comparisons");
+        row.put("rule", "Available");
+        row.put("advanced", true);
+        row.put("valueAttribute", "remaining");
+        states.put("sensor.eta", snapshot("available", "running", map("remaining", eta)));
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US)
+            .value.equals("Home in 7 min"), "attribute text uses the same display cleanup");
+        row.put("valueAttribute", "");
+        states.put("sensor.eta", snapshot("available", "22.50", map("unit_of_measurement", "\t\u00b0C\n ")));
+        check(config(Collections.singletonList(row)).entries.get(0).evaluate(states, Locale.US)
+            .value.equals("22.5 \u00b0C"), "numeric and unit formatting retain their existing behavior");
     }
 
     private static void orderedRotation() {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7 (unreleased)
+
+- Collapse display whitespace before truncating labels and values, so indented
+  multiline Home Assistant templates do not hide useful text behind an ellipsis.
+  Raw source values and visibility comparisons are unchanged.
+
 ## 0.1.6
 
 - Horizontal and vertical placement offsets use exact signed numeric entry

@@ -246,9 +246,9 @@ python tools\verify_package.py
 
 Outputs:
 
-- `dist/ks-live-notifications-0.1.6.zip` — local developer installation package.
+- `dist/ks-live-notifications-0.1.7.zip` — local developer installation package.
 - `dist/kiosk-satellite-plugin.json` — byte-identical standalone manifest.
-- `dist/ks-live-notifications-0.1.6.zip.sha256` — SHA-256 checksum.
+- `dist/ks-live-notifications-0.1.7.zip.sha256` — SHA-256 checksum.
 
 The official SDK and build helpers are vendored at the revision recorded in
 [NOTICE](../NOTICE), with their Apache-2.0 licensing intact. SDK classes are compile-time
@@ -264,6 +264,13 @@ tests cover initial attach, event/read ordering, hidden widgets, Now Playing pal
 restoration, screen-off, restart, older hosts and explicit API failures. They do **not** render
 Android views or replace testing in KS. Package verification checks the checksum,
 manifest identity, license, size limits and actual DEX class definitions.
+
+Display formatting collapses whitespace in labels and values before the
+160-character limit, including multiline template indentation and Unicode spaces.
+Raw Home Assistant values and exact visibility comparisons are unchanged.
+Regression coverage includes the retained indented ETA value, attribute values,
+units and length-limit ordering; this formatting patch has not had a new native
+framebuffer acceptance run.
 
 **Build and test** CI produces the developer ZIP as an Actions artifact on pushes
 and pull requests. The separate **Release** workflow runs only for an explicitly
