@@ -269,8 +269,7 @@ Display formatting collapses whitespace in labels and values before the
 160-character limit, including multiline template indentation and Unicode spaces.
 Raw Home Assistant values and exact visibility comparisons are unchanged.
 Regression coverage includes the retained indented ETA value, attribute values,
-units and length-limit ordering; this formatting patch has not had a new native
-framebuffer acceptance run.
+units and length-limit ordering.
 
 **Build and test** CI produces the developer ZIP as an Actions artifact on pushes
 and pull requests. The separate **Release** workflow runs only for an explicitly
@@ -324,6 +323,14 @@ Native notification/intercom/announcement precedence is verified in the shipped
 host layer implementation, not by generating household messages or calls.
 These checks do not claim to fix or validate the separate Flutter Skia
 external-texture defect.
+
+After releasing 0.1.7, an isolated temporary plugin ID on the same Android 17 / KS
+2026.11.3 test device rendered the retained multiline ETA as "Home in 7 min" in
+native framebuffer captures. The hash-identical production Java used detached SDK
+entity/appearance fixtures, with no real Home Assistant subscriptions or state
+changes. Native/Glass, night/day restoration, hidden widgets and signed 1 dp
+placement were also checked. The fixture was removed, leaving production plugin
+settings, host settings, profile membership and renderer unchanged.
 
 The broader physical checks below predate the Night mode integration.
 
