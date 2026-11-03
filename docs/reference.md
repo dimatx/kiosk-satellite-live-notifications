@@ -246,9 +246,9 @@ python tools\verify_package.py
 
 Outputs:
 
-- `dist/ks-live-notifications-0.1.5.zip` — local developer installation package.
+- `dist/ks-live-notifications-0.1.6.zip` — local developer installation package.
 - `dist/kiosk-satellite-plugin.json` — byte-identical standalone manifest.
-- `dist/ks-live-notifications-0.1.5.zip.sha256` — SHA-256 checksum.
+- `dist/ks-live-notifications-0.1.6.zip.sha256` — SHA-256 checksum.
 
 The official SDK and build helpers are vendored at the revision recorded in
 [NOTICE](../NOTICE), with their Apache-2.0 licensing intact. SDK classes are compile-time
@@ -297,9 +297,28 @@ No physical-device or emulator rendering verification is implied by the JVM/buil
 checks. KS Remote Admin screenshots may omit native overlays; use a device screenshot
 when verifying visuals.
 
-The new Night mode integration has JVM/build coverage only; the physical checks
-below predate it. No production settings or installations were changed to validate
-this unreleased integration.
+Version 0.1.6 was additionally checked on Android 17 (2000x1200 landscape),
+KS 2026.11.3, using an isolated temporary plugin ID with identical production Java
+and a private acceptance adapter. Native framebuffer captures confirmed initial
+night attachment, night/day events, custom foreground/background/Flip colors in
+Native and Glass, palette restoration, hidden/unhidden widgets, dashboard palette,
+older-host fallback and signed 1 dp placement. The real host API discovery and
+initial appearance read succeeded. Night and Now Playing transition payloads were
+detached SDK fixtures, not forced sensor, HA, clock or media states; real lux-driven
+transitions and actual media takeover were not induced. The temporary ID was removed,
+and production plugin binaries/source/settings, host settings, Fleet membership and
+renderer were verified unchanged.
+
+The exact KS 2026.11.3 Remote Admin number renderer was exercised offline with
+typed signed/boundary/1 dp values and fractional/out-of-range/empty rejections.
+Native offset changes were checked in framebuffer captures; native keyboard
+interaction remains source-verified rather than physically exercised.
+Native notification/intercom/announcement precedence is verified in the shipped
+host layer implementation, not by generating household messages or calls.
+These checks do not claim to fix or validate the separate Flutter Skia
+external-texture defect.
+
+The broader physical checks below predate the Night mode integration.
 
 Physical coverage is Android 8.1 (Lenovo StarView, 1280×800 landscape and
 800×1280 portrait) and Android 17 (Fire Max 11, 2000×1200 landscape), on KS

@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "ks-live-notifications",
   "name": "Live notifications",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "icon": "icon.png",
   "minAppVersion": "2026.10.42",
   "minAndroidSdk": 26,

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.6
 
 - Horizontal and vertical placement offsets use exact signed numeric entry
   instead of wide sliders, preserving saved values and the full 1 dp range.
@@ -12,6 +12,9 @@
 - Discover the supported appearance command/event before subscribing and reading;
   protect initial attachment from stale snapshots and retain older-host behavior.
   Regression coverage for lifecycle races, both materials and explicit API failures.
+- Native Android acceptance with an isolated temporary plugin ID on KS 2026.11.3:
+  Night/custom/Flip palettes, restoration, hidden widgets and precise 1 dp placement.
+  Transitions used detached SDK fixtures; production profiles and settings were unchanged.
 
 ## 0.1.5
 
