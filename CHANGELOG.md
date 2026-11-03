@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.7 (unreleased)
+## 0.1.7
 
 - Collapse display whitespace before truncating labels and values, so indented
   multiline Home Assistant templates do not hide useful text behind an ellipsis.
