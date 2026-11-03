@@ -4,6 +4,14 @@
 
 - Horizontal and vertical placement offsets use exact signed numeric entry
   instead of wide sliders, preserving saved values and the full 1 dp range.
+- On KS 2026.11.1+, Native and Glass follow the Clock screensaver's active Night
+  mode foreground/background and Flip card colors. Normal palettes return on
+  exit or full-screen Now Playing takeover, without changing saved styles.
+- Respect Clock Night mode's Hide widgets preference: hide live notifications,
+  stop preview, pause sources/rotation and resume with fresh data.
+- Discover the supported appearance command/event before subscribing and reading;
+  protect initial attachment from stale snapshots and retain older-host behavior.
+  Regression coverage for lifecycle races, both materials and explicit API failures.
 
 ## 0.1.5
 

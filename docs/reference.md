@@ -38,15 +38,47 @@ its appearance too. Preview does not wake the display or start a screensaver.
 **Native** uses the KS card surface, typeface and theme colors, consistent with
 Navbar and Action Bar. **Glass** is the translucent dark chip with light text,
 useful over photos. It does not blur or inspect the screen behind it.
-**Style on screensaver > Default** follows the general **Style**; it does **not**
-read the stock screensaver's appearance. Changing style does not duplicate or
-change placement, size, motion or rotation.
+**Style on screensaver > Default** follows the general **Style**. Changing style
+does not duplicate or change placement, size, motion or rotation. Clock Night
+mode can tint either material as described below; it does not change your saved
+style preference.
 
 **Upgrading an earlier developer build:** configurations without **Show on** now
 default to **Always**, and the style defaults to **Native** with the screensaver
 following it. Choose **Screensaver only** and **Glass** to retain the earlier
 presentation. Existing disabled settings, explicit sizes, source picks, progress
 choices and percentage-text preferences are retained.
+
+### Clock Night mode (KS 2026.11.1+)
+
+Live notifications follows KS's **actual active** Clock Night mode, including
+custom colors and the clock's light-level hysteresis. It does not guess from a
+dark theme, time of day, or the fact that Night mode is enabled.
+
+Text, icons, progress and an enabled live indicator use the resolved Night color.
+The chip uses the Night background, or the Night card color with the Flip clock.
+Native keeps its KS card shape and opacity; Glass keeps its translucent material
+and row shape. The icon circle, progress track and outline use subdued night-tinted
+colors rather than bright white accents. User-selected night colors are honored,
+not brightened or contrast-corrected by the plugin.
+
+**Hide widgets and At a Glance** also hides Live notifications while Clock Night
+mode is active. Sources and rotation pause, sample preview stops, and resuming
+waits for fresh HA data. This preference does not hide dashboard notifications.
+Night mode exit, another screensaver, or full-screen Now Playing restores the
+normal palette for your chosen style. The appearance API reports the underlying
+view under Now Playing, not a separate takeover flag; Live notifications remains
+a passive overlay in its configured scope rather than guessing whether to hide.
+
+The plugin checks the command **and** event lists returned by `getHostApi`,
+subscribes to `screensaver.appearance` before its initial `getScreensaverAppearance`
+read, and ignores snapshots superseded by newer events or a stopped session.
+It waits for confirmed startup screen/screensaver state and appearance before
+showing over an active screensaver. Advertised API failures are reported in plugin
+status, not treated as normal day mode. Older supported hosts keep their existing
+behavior without unsupported appearance reads, subscriptions, or repeated warnings;
+the minimum KS version remains 2026.10.42.
+See the [official API contract](https://github.com/jxlarrea/kiosk-satellite-plugins/blob/main/docs/ks-api.md#clock-night-mode).
 
 ## Behavior
 
@@ -97,6 +129,8 @@ choices and percentage-text preferences are retained.
   displaying over other apps, menus or camera screens.
 - On the dashboard the overlay uses KS's ordinary layer, below native menus,
   cameras and voice surfaces. Screensaver mode uses its upper overlay layer.
+  On KS 2026.11.1+, native notification, intercom and announcement cards are above
+  that upper layer too; the plugin needs no temporary layer or redraw workaround.
   Switching layers retains live subscriptions and the current rotation; leaving
   the allowed scope, screen-off or backgrounding releases sources and timers.
   Resuming waits for fresh data. Stock covers/Lockdown follow KS's own layer rules.
@@ -223,7 +257,11 @@ only, never packaged. The implementation is original Java under `src/`.
 The tests compile **all production sources** against the official SDK and Android
 platform, then exercise eligibility, formatting, exact subscription limits, ordered
 rotation, stale-read races, live updates, preview expiry, subscription changes,
-cleanup and restart with a fake host and deterministic clock. They do **not** render
+cleanup and restart with a fake host and deterministic clock. Appearance tests
+exercise the native chip's actual palette resolver for both materials, signed and
+unsigned ARGB, custom/Flip colors, restoration and host theme changes. Controller
+tests cover initial attach, event/read ordering, hidden widgets, Now Playing palette
+restoration, screen-off, restart, older hosts and explicit API failures. They do **not** render
 Android views or replace testing in KS. Package verification checks the checksum,
 manifest identity, license, size limits and actual DEX class definitions.
 
@@ -251,10 +289,17 @@ Before calling a release device-tested, install the ZIP on a KS test device and 
   accurate placement, and no implication of automatic collision avoidance.
 - HA disconnection/reconnection, entity removal, unknown/unavailable/large data,
   conditions clearing, and live updates without flicker or dwell resets.
+- On KS 2026.11.1+, initial attach during Clock Night mode, custom colors in Native
+  and Glass, Night mode exit, Flip cards, Hide widgets, Now Playing takeover and
+  native notification/intercom/announcement layering.
 
 No physical-device or emulator rendering verification is implied by the JVM/build
 checks. KS Remote Admin screenshots may omit native overlays; use a device screenshot
 when verifying visuals.
+
+The new Night mode integration has JVM/build coverage only; the physical checks
+below predate it. No production settings or installations were changed to validate
+this unreleased integration.
 
 Physical coverage is Android 8.1 (Lenovo StarView, 1280×800 landscape and
 800×1280 portrait) and Android 17 (Fire Max 11, 2000×1200 landscape), on KS

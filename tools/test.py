@@ -26,7 +26,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="live-notifications-test-") as directory:
         subprocess.run([tool("javac"), "--release", "8", "-Xlint:all",
                         "-cp", str(platform), "-d", directory, *map(str, sources)], check=True)
-        for test in ("CoreTest", "ControllerTest"):
+        for test in ("CoreTest", "ControllerTest", "AppearanceTest"):
             subprocess.run([tool("java"), "-ea", "-cp",
                             os.pathsep.join([directory, str(platform)]),
                             "com.shymoose.livenotifications." + test], check=True)

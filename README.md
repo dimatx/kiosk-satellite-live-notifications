@@ -84,8 +84,12 @@ for dryers, vacuums and vehicle arrival, including how to use entity attributes.
 | Rotation | Reading time and motion |
 | Placement | Position, offsets, width and sample preview |
 
-**Style on screensaver > Default** follows the general **Style**, not the stock
-clock's settings. Position, size and rotation stay shared.
+**Style on screensaver > Default** inherits your general **Style**. Position,
+size and rotation stay shared. On **KS 2026.11.1 or newer**, both Native and Glass
+automatically follow the clock's active Night mode colors. When the clock hides
+widgets at night, Live notifications hides too. Normal colors return when Night
+mode ends, you leave the clock, or full-screen Now Playing takes over.
+Older supported KS versions keep the usual plugin colors.
 
 Placement is manual: use preview to leave room for clocks, widgets and bars.
 There is **no automatic collision avoidance**. Adaptive width fits portrait and

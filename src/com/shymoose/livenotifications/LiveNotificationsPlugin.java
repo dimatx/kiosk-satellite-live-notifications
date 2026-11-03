@@ -13,6 +13,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import me.jxl.kiosk.plugins.KioskPlugin;
 import me.jxl.kiosk.plugins.KsTheme;
@@ -46,6 +47,10 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
     private ActivityVisibility activityVisibility;
     private boolean running, shown, screenOn, screensaver, preview, previewSetting;
     private boolean foreground = true, overlayOnTop;
+    private boolean hostApiReady, appearanceSupported, appearanceReady;
+    private boolean screenKnown, saverKnown;
+    private ScreensaverAppearance appearance = ScreensaverAppearance.NORMAL;
+    private int appearanceRevision, appearanceRead;
     private int screenRevision, saverRevision, session, overlayRevision;
     private String configError, runtimeError, lastStatus;
     private boolean lastStatusError;
@@ -72,6 +77,10 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         screenOn = screensaver = preview = previewSetting = shown = false;
         foreground = true;
         screenRevision = saverRevision = 0;
+        hostApiReady = appearanceSupported = appearanceReady = false;
+        screenKnown = saverKnown = false;
+        appearance = ScreensaverAppearance.NORMAL;
+        appearanceRevision = appearanceRead = 0;
         configError = runtimeError = lastStatus = null;
         chip = null;
         subscribed.clear();
@@ -87,6 +96,7 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
             host.subscribe("screensaver.state");
             host.subscribe("screensaver.view");
             host.subscribe("screen.state");
+            discoverAppearance();
             readInitialState();
         } catch (RuntimeException | LinkageError error) {
             fault("Cannot initialize the supported KS overlay API", error);
@@ -98,26 +108,90 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         int initialScreen = screenRevision, initialSaver = saverRevision;
         host.executeCommand("isScreenOn", Collections.emptyMap(), (ok, data, error) -> {
             synchronized (this) {
-                if (!running || currentSession != session || screenRevision != initialScreen) return;
+                if (!running || currentSession != session || runtimeError != null || screenRevision != initialScreen) return;
                 if (!ok || !(data instanceof Boolean)) {
                     fault("Cannot read screen state: " + error, null);
                     return;
                 }
                 screenOn = Boolean.TRUE.equals(data);
+                screenKnown = true;
                 refreshSafely();
             }
         });
         host.executeCommand("isScreensaverActive", Collections.emptyMap(), (ok, data, error) -> {
             synchronized (this) {
-                if (!running || currentSession != session || saverRevision != initialSaver) return;
+                if (!running || currentSession != session || runtimeError != null || saverRevision != initialSaver) return;
                 if (!ok || !(data instanceof Boolean)) {
                     fault("Cannot read screensaver state: " + error, null);
                     return;
                 }
-                screensaver = Boolean.TRUE.equals(data);
-                refreshSafely();
+                try {
+                    screensaverChanged(Boolean.TRUE.equals(data));
+                    saverKnown = true;
+                    refresh();
+                } catch (RuntimeException | LinkageError failure) {
+                    fault("Cannot initialize screensaver appearance", failure);
+                }
             }
         });
+    }
+
+    private void discoverAppearance() {
+        int currentSession = session;
+        host.executeCommand("getHostApi", Collections.emptyMap(), (ok, data, error) -> {
+            synchronized (this) {
+                if (!running || currentSession != session || runtimeError != null) return;
+                try {
+                    if (!ok) throw new IllegalStateException("Cannot discover host API: " + error);
+                    if (!(data instanceof Map)) throw new IllegalArgumentException("Expected host API map");
+                    Map<?, ?> api = (Map<?, ?>) data;
+                    if (!(api.get("commands") instanceof List) || !(api.get("events") instanceof List)) {
+                        throw new IllegalArgumentException("Expected host command and event lists");
+                    }
+                    appearanceSupported = ((List<?>) api.get("commands")).contains("getScreensaverAppearance")
+                        && ((List<?>) api.get("events")).contains("screensaver.appearance");
+                    hostApiReady = true;
+                    if (appearanceSupported) {
+                        host.subscribe("screensaver.appearance");
+                        readAppearance();
+                    }
+                    refresh();
+                } catch (RuntimeException | LinkageError failure) {
+                    fault("Cannot initialize screensaver appearance", failure);
+                }
+            }
+        });
+    }
+
+    private void readAppearance() {
+        int currentSession = session, revision = appearanceRevision, request = ++appearanceRead;
+        host.executeCommand("getScreensaverAppearance", Collections.emptyMap(), (ok, data, error) -> {
+            synchronized (this) {
+                if (!running || currentSession != session || runtimeError != null
+                    || request != appearanceRead || revision != appearanceRevision) return;
+                try {
+                    if (!ok) throw new IllegalStateException("Cannot read screensaver appearance: " + error);
+                    appearance = ScreensaverAppearance.read(data);
+                    appearanceReady = true;
+                    refresh();
+                } catch (RuntimeException | LinkageError failure) {
+                    fault("Cannot update screensaver appearance", failure);
+                }
+            }
+        });
+    }
+
+    private void screensaverChanged(boolean active) {
+        if (screensaver == active) return;
+        screensaver = active;
+        appearanceRevision++;
+        appearance = ScreensaverAppearance.NORMAL;
+        appearanceReady = false;
+        if (active && appearanceSupported) readAppearance();
+    }
+
+    private ScreensaverAppearance effectiveAppearance() {
+        return screensaver && appearanceReady ? appearance : ScreensaverAppearance.NORMAL;
     }
 
     @Override public synchronized void configure(Map<String, Object> settings) {
@@ -162,15 +236,29 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
             switch (event) {
                 case "ks.screen.state":
                     screenRevision++;
+                    screenKnown = true;
                     screenOn = Boolean.TRUE.equals(payload.get("on"));
                     if (!screenOn) stopPreview();
                     break;
                 case "ks.screensaver.state":
                     saverRevision++;
-                    screensaver = Boolean.TRUE.equals(payload.get("active"));
+                    saverKnown = true;
+                    screensaverChanged(Boolean.TRUE.equals(payload.get("active")));
                     break;
                 case "ks.screensaver.view":
                     // A null view also describes dim mode. Only screensaver.state decides eligibility.
+                    if (appearanceSupported && !Objects.equals(appearance.view, payload.get("view"))) {
+                        appearanceRevision++;
+                        appearanceReady = false;
+                        appearance = ScreensaverAppearance.NORMAL;
+                        readAppearance();
+                    }
+                    break;
+                case "ks.screensaver.appearance":
+                    if (!appearanceSupported) return;
+                    appearanceRevision++;
+                    appearance = ScreensaverAppearance.read(payload);
+                    appearanceReady = true;
                     break;
                 case "settings.page":
                     if (Boolean.FALSE.equals(payload.get("open"))) stopPreview();
@@ -218,7 +306,7 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         synchronized (this) {
             if (!running || chip == null || config == null || runtimeError != null) return;
             try {
-                chip.show(selected, config.motion, config.textScale, config.darkSurface(screensaver));
+                chip.show(selected, config.motion, config.textScale, config.darkSurface(screensaver), effectiveAppearance());
             } catch (RuntimeException | LinkageError error) {
                 fault("Cannot render the notification chip", error);
             }
@@ -246,7 +334,11 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
 
     private void refresh() {
         main.removeCallbacks(rotate);
-        boolean active = runtimeError == null && config != null && screenOn && foreground
+        if (effectiveAppearance().widgetsHidden) stopPreview();
+        boolean active = runtimeError == null && config != null && screenKnown && saverKnown
+            && screenOn && foreground && hostApiReady
+            && (!screensaver || !appearanceSupported || appearanceReady)
+            && !effectiveAppearance().widgetsHidden
             && (preview || (config.enabled && config.allows(screensaver) && !config.entries.isEmpty()));
         boolean watch = active && !preview;
         syncSources(watch ? config.sources : Collections.emptySet());
@@ -311,7 +403,8 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
                         }
                         activityVisibility.attach(context);
                         chip = created;
-                        created.show(selected, config.motion, config.textScale, config.darkSurface(screensaver));
+                        created.show(selected, config.motion, config.textScale, config.darkSurface(screensaver),
+                            effectiveAppearance());
                     }
                     return created;
                 }
@@ -353,6 +446,10 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
             message = "Live overlay is off. Your screensaver settings are unchanged.";
         } else if (!screenOn || !foreground) {
             message = "Waiting for the screen and Kiosk Satellite to be visible. Live sources are paused.";
+        } else if (!hostApiReady || (screensaver && appearanceSupported && !appearanceReady)) {
+            message = "Waiting for Kiosk Satellite's screensaver appearance. Live sources are paused.";
+        } else if (effectiveAppearance().widgetsHidden) {
+            message = "Clock Night mode hides widgets and live notifications. Live sources are paused.";
         } else if (!config.allows(screensaver)) {
             message = "Waiting for " + (config.displayScope.equals("Screensaver only")
                 ? "the screensaver" : "the dashboard") + ". Live sources are paused.";
@@ -386,6 +483,8 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         main.removeCallbacks(endPreview);
         main.removeCallbacks(render);
         selected = null;
+        appearance = ScreensaverAppearance.NORMAL;
+        appearanceReady = hostApiReady = appearanceSupported = false;
         preview = false;
         // Do not turn API failures into a success-shaped empty overlay.
         host.log(runtimeError);
@@ -429,6 +528,8 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         snapshots.clear();
         selected = null;
         rotation.reset();
+        appearance = ScreensaverAppearance.NORMAL;
+        appearanceReady = hostApiReady = appearanceSupported = false;
         // KS has already revoked the host and removes its overlays/subscriptions.
     }
 

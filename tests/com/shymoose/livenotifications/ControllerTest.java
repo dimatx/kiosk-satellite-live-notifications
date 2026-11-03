@@ -25,6 +25,9 @@ public final class ControllerTest {
         invalidConfigurationAndFailures();
         progressSubscriptions();
         displayScopesAndVisibility();
+        screensaverAppearance();
+        appearanceReadRaces();
+        appearanceFailuresAndLegacyHosts();
         stopAndRestart();
         System.out.println("ControllerTest: " + checkCount() + " lifecycle assertions passed");
     }
@@ -258,9 +261,200 @@ public final class ControllerTest {
         return (NotificationModel.Item) field.get(plugin);
     }
 
+    private static ScreensaverAppearance appearance(LiveNotificationsPlugin plugin) throws Exception {
+        java.lang.reflect.Method method = LiveNotificationsPlugin.class.getDeclaredMethod("effectiveAppearance");
+        method.setAccessible(true);
+        return (ScreensaverAppearance) method.invoke(plugin);
+    }
+
+    private static Map<String, Object> night(boolean hidden) {
+        return map("view", "clock", "night", true, "textColor", 0xffff0000L,
+            "backgroundColor", 0xff050607L, "cardColor", null, "widgetsHidden", hidden);
+    }
+
+    private static Map<String, Object> day(String view) {
+        return map("view", view, "night", false, "textColor", null,
+            "backgroundColor", null, "cardColor", null, "widgetsHidden", false);
+    }
+
+    private static void screensaverAppearance() throws Exception {
+        Fixture f = new Fixture(Arrays.asList(row("sensor.a"), row("sensor.b")), false, true);
+        check(f.host.subscriptions.contains("screensaver.appearance"), "advertised appearance event subscribed");
+        check(f.host.appearanceSubscribedBeforeRead, "subscribe appearance before initial snapshot");
+        f.host.complete("isScreenOn", true);
+        f.host.complete("isScreensaverActive", true);
+        check(f.host.shows == 0 && f.host.entities().isEmpty(), "no bright chip or HA feeds before initial night snapshot");
+        f.host.complete("getScreensaverAppearance", night(false));
+        check(f.host.shows == 1 && f.host.entities().size() == 2, "initial active night attaches through normal layer");
+        check(appearance(f.plugin).night && appearance(f.plugin).textColor == 0xffff0000,
+            "unsigned Number ARGB retains its full bits");
+        f.entity("sensor.a", "available", "a");
+        f.entity("sensor.b", "available", "b");
+        f.scheduler.advance(5000);
+        Map<String, Object> custom = night(false);
+        custom.put("textColor", Integer.valueOf(0xffb84c17));
+        custom.put("backgroundColor", 0xff121314L);
+        custom.put("cardColor", 0xff202122L);
+        f.plugin.onEvent("ks.screensaver.appearance", custom);
+        check(appearance(f.plugin).textColor == 0xffb84c17 && appearance(f.plugin).cardColor == 0xff202122,
+            "custom signed/unsigned night and Flip colors update");
+        check(f.host.shows == 1 && selected(f.plugin).id == 0, "color-only change neither rebuilds nor interrupts current item");
+        f.scheduler.advance(5000);
+        check(selected(f.plugin).id == 1, "night recolor preserves dwell deadline");
+        f.plugin.onEvent("ks.screensaver.appearance", day("clock"));
+        check(!appearance(f.plugin).night && appearance(f.plugin).cardColor == null,
+            "night exit or Now Playing takeover restores normal palette despite underlying clock view");
+        check(f.host.shows == 1 && selected(f.plugin).id == 1, "Now Playing palette update keeps passive rotation and layer");
+        f.plugin.onEvent("ks.screensaver.appearance", night(true));
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null && f.host.hides == 1,
+            "clock hide-widgets preference hides overlay and releases sources");
+        check(f.scheduler.pending() == 0 && !f.host.statusError && f.host.status.contains("hides widgets"),
+            "hidden night is intentional paused status with no timers");
+        f.settings.put("preview", true);
+        f.plugin.configure(f.settings);
+        check(selected(f.plugin) == null && Boolean.FALSE.equals(f.host.saved.get("preview")),
+            "preview cannot override hide-widgets preference and is stopped");
+        f.plugin.onEvent("ks.screensaver.appearance", night(false));
+        check(f.host.shows == 2 && f.host.entities().size() == 2 && selected(f.plugin) == null,
+            "unhiding resumes only with fresh subscribed data");
+        f.entity("sensor.a", "available", "fresh");
+        f.plugin.onEvent("ks.screensaver.state", map("active", false));
+        check(!appearance(f.plugin).night && !f.host.spec.onTop(), "dashboard never inherits screensaver night tint");
+        check(f.host.entities().size() == 2, "Always keeps live sources on dashboard");
+        f.plugin.onEvent("ks.screensaver.appearance", night(true));
+        check(!appearance(f.plugin).night && f.host.entities().size() == 2,
+            "late appearance cannot hide or tint dashboard");
+        f.plugin.onEvent("ks.screensaver.state", map("active", true));
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null, "new saver session cannot reuse prior night snapshot");
+        f.host.complete("getScreensaverAppearance", day("slideshow"));
+        check(!appearance(f.plugin).night && f.host.spec.onTop(), "other screensavers retain chosen material and upper layer");
+        f.plugin.onEvent("ks.screensaver.view", map("view", null));
+        f.host.complete("getScreensaverAppearance", day(null));
+        check(f.host.entities().size() == 2 && f.host.spec.onTop(), "dim's null view remains eligible");
+        f.plugin.onEvent("ks.screensaver.appearance", night(false));
+        f.entity("sensor.a", "available", "night");
+        f.plugin.visibilityChanged(false);
+        check(f.host.entities().isEmpty() && f.scheduler.pending() == 0, "backgrounding during night releases live work");
+        f.plugin.visibilityChanged(true);
+        check(appearance(f.plugin).night && selected(f.plugin) == null,
+            "foreground keeps current subscribed appearance but waits for fresh entity data");
+        f.plugin.onEvent("ks.screen.state", map("on", false));
+        check(f.host.entities().isEmpty() && f.scheduler.pending() == 0, "night screen-off leaves no live work");
+        f.plugin.stop();
+        check(!appearance(f.plugin).night, "stop clears the night snapshot");
+    }
+
+    private static void appearanceReadRaces() throws Exception {
+        Fixture f = new Fixture(Collections.singletonList(row("sensor.a")), false, true);
+        f.host.complete("isScreenOn", true);
+        PluginHost.CommandCallback firstRead = f.host.callbacks.get("getScreensaverAppearance");
+        f.host.complete("isScreensaverActive", true);
+        PluginHost.CommandCallback newSessionRead = f.host.callbacks.get("getScreensaverAppearance");
+        firstRead.onResult(true, day(null), null);
+        check(f.host.shows == 0, "obsolete attach snapshot cannot override new screensaver session");
+        f.plugin.onEvent("ks.screensaver.appearance", night(false));
+        newSessionRead.onResult(true, day("clock"), null);
+        check(appearance(f.plugin).night, "appearance event wins over older initial snapshot");
+        f.plugin.onEvent("ks.screensaver.view", map("view", "slideshow"));
+        check(f.host.entities().isEmpty() && !appearance(f.plugin).night,
+            "view change cannot render stale clock colors while appearance is pending");
+        PluginHost.CommandCallback slideRead = f.host.callbacks.get("getScreensaverAppearance");
+        f.plugin.onEvent("ks.screensaver.appearance", day("slideshow"));
+        f.entity("sensor.a", "available", "fresh");
+        slideRead.onResult(false, null, "obsolete failed snapshot");
+        check(!f.host.statusError && f.host.entities().size() == 1, "new event also supersedes stale read failure");
+        f.plugin.onEvent("ks.screensaver.view", map("view", "clock"));
+        PluginHost.CommandCallback stoppedRead = f.host.callbacks.get("getScreensaverAppearance");
+        f.plugin.stop();
+        int calls = f.host.hostCalls;
+        stoppedRead.onResult(true, night(false), null);
+        check(f.host.hostCalls == calls, "revoked session's appearance callback does no host work");
+        f.plugin.start(f.host, f.settings);
+        stoppedRead.onResult(true, night(true), null);
+        check(!appearance(f.plugin).night, "previous start's callback cannot contaminate restarted plugin");
+        f.host.complete("isScreenOn", true);
+        f.host.complete("isScreensaverActive", true);
+        f.host.complete("getScreensaverAppearance", night(false));
+        check(appearance(f.plugin).night, "restart reads current appearance");
+
+        TestScheduler scheduler = new TestScheduler();
+        FakeHost host = new FakeHost();
+        host.delayDiscovery = true;
+        LiveNotificationsPlugin plugin = new LiveNotificationsPlugin(scheduler, () -> scheduler.now);
+        plugin.start(host, settings(Collections.singletonList(row("sensor.a"))));
+        host.complete("isScreenOn", true);
+        host.complete("isScreensaverActive", true);
+        check(host.shows == 0, "screen state reads cannot bypass pending capability discovery");
+        host.complete("getHostApi", map("commands", Arrays.asList("getScreensaverAppearance"),
+            "events", Arrays.asList("screensaver.appearance")));
+        host.complete("getScreensaverAppearance", night(true));
+        check(host.shows == 0 && host.entities().isEmpty(), "delayed discovery attaches directly into hidden night state");
+        Fixture early = new Fixture(Collections.singletonList(row("sensor.a")), false, true);
+        early.host.complete("getScreensaverAppearance", night(false));
+        early.host.complete("isScreenOn", true);
+        check(early.host.shows == 0, "early appearance snapshot cannot bypass unconfirmed screensaver state");
+        early.host.complete("isScreensaverActive", true);
+        check(early.host.shows == 0, "confirming a new active saver requires a current appearance snapshot");
+        early.host.complete("getScreensaverAppearance", night(false));
+        check(appearance(early.plugin).night && early.host.shows == 1, "early snapshot ordering never attaches in day colors");
+    }
+
+    private static void appearanceFailuresAndLegacyHosts() throws Exception {
+        Fixture legacy = new Fixture(Collections.singletonList(row("sensor.a")));
+        legacy.active();
+        check(!legacy.host.callbacks.containsKey("getScreensaverAppearance")
+            && !legacy.host.subscriptions.contains("screensaver.appearance") && legacy.host.logs.isEmpty(),
+            "legacy host is not sent unsupported commands/subscriptions or warning spam");
+        legacy.plugin.onEvent("ks.screensaver.appearance", night(true));
+        check(legacy.host.entities().size() == 1 && !appearance(legacy.plugin).night, "unadvertised event ignored");
+        Fixture failed = new Fixture(Collections.singletonList(row("sensor.a")), false, true);
+        failed.host.complete("isScreenOn", true);
+        failed.host.complete("isScreensaverActive", true);
+        failed.host.callbacks.get("getScreensaverAppearance").onResult(false, null, "snapshot unavailable");
+        check(failed.host.statusError && failed.host.status.contains("snapshot unavailable")
+            && failed.host.shows == 0 && failed.host.entities().isEmpty(),
+            "advertised API failure is explicit, not a success-shaped fallback");
+        Fixture bad = new Fixture(Collections.singletonList(row("sensor.a")), false, true);
+        bad.active();
+        Map<String, Object> malformed = night(false);
+        malformed.put("textColor", "red");
+        bad.plugin.onEvent("ks.screensaver.appearance", malformed);
+        check(bad.host.statusError && bad.host.status.contains("numeric night ARGB")
+            && bad.host.entities().isEmpty(), "malformed event fails closed with actionable status");
+        TestScheduler scheduler = new TestScheduler();
+        FakeHost host = new FakeHost();
+        host.delayDiscovery = true;
+        LiveNotificationsPlugin plugin = new LiveNotificationsPlugin(scheduler, () -> scheduler.now);
+        plugin.start(host, settings(Collections.singletonList(row("sensor.a"))));
+        host.callbacks.get("getHostApi").onResult(false, null, "discovery failed");
+        check(host.statusError && host.status.contains("discovery failed"), "discovery failure is visible");
+        Fixture rejected = new Fixture(Collections.singletonList(row("sensor.a")), false, true);
+        rejected.host.rejectCommand = "getScreensaverAppearance";
+        rejected.host.complete("isScreensaverActive", true);
+        check(rejected.host.statusError && rejected.host.status.contains("Test command refused"),
+            "synchronous appearance dispatch failure in initial saver callback is caught");
+        FakeHost stoppedHost = new FakeHost();
+        stoppedHost.delayDiscovery = true;
+        LiveNotificationsPlugin stopped = new LiveNotificationsPlugin(scheduler, () -> scheduler.now);
+        stopped.start(stoppedHost, settings(Collections.singletonList(row("sensor.a"))));
+        PluginHost.CommandCallback discovery = stoppedHost.callbacks.get("getHostApi");
+        stopped.stop();
+        int calls = stoppedHost.hostCalls;
+        discovery.onResult(true, map("commands", Arrays.asList("getScreensaverAppearance"),
+            "events", Arrays.asList("screensaver.appearance")), null);
+        check(stoppedHost.hostCalls == calls, "late discovery cannot subscribe or read a revoked host");
+        FakeHost partial = new FakeHost();
+        partial.delayDiscovery = true;
+        LiveNotificationsPlugin partialPlugin = new LiveNotificationsPlugin(scheduler, () -> scheduler.now);
+        partialPlugin.start(partial, settings(Collections.singletonList(row("sensor.a"))));
+        partial.complete("getHostApi", map("commands", Arrays.asList("getScreensaverAppearance"), "events", Collections.emptyList()));
+        check(!partial.callbacks.containsKey("getScreensaverAppearance")
+            && !partial.subscriptions.contains("screensaver.appearance"), "both advertised names are required");
+    }
+
     private static final class Fixture {
         final TestScheduler scheduler = new TestScheduler();
-        final FakeHost host = new FakeHost();
+        final FakeHost host;
         final LiveNotificationsPlugin plugin = new LiveNotificationsPlugin(scheduler, () -> scheduler.now);
         final Map<String, Object> settings;
 
@@ -269,6 +463,12 @@ public final class ControllerTest {
         }
 
         Fixture(List<Map<String, Object>> rows, boolean preview) {
+            this(rows, preview, false);
+        }
+
+        Fixture(List<Map<String, Object>> rows, boolean preview, boolean supportsAppearance) {
+            host = new FakeHost();
+            host.supportsAppearance = supportsAppearance;
             settings = settings(rows);
             settings.put("preview", preview);
             plugin.start(host, settings);
@@ -278,6 +478,7 @@ public final class ControllerTest {
         void active() {
             host.complete("isScreenOn", true);
             host.complete("isScreensaverActive", true);
+            if (host.supportsAppearance) host.complete("getScreensaverAppearance", day("clock"));
             scheduler.runReady();
         }
 
@@ -315,12 +516,23 @@ public final class ControllerTest {
         final Map<String, Object> saved = new LinkedHashMap<>();
         OverlaySpec spec;
         int shows, hides, hostCalls;
-        String status, rejectSubscription;
+        String status, rejectSubscription, rejectCommand;
         boolean statusError;
+        boolean supportsAppearance, delayDiscovery, appearanceSubscribedBeforeRead;
+        final List<String> logs = new ArrayList<>();
 
         public void executeCommand(String command, Map<String, Object> args, CommandCallback callback) {
             hostCalls++;
+            if (command.equals(rejectCommand)) throw new IllegalStateException("Test command refused");
             callbacks.put(command, callback);
+            if (command.equals("getHostApi") && !delayDiscovery) {
+                callback.onResult(true, map("commands", supportsAppearance
+                    ? Arrays.asList("getScreensaverAppearance") : Collections.emptyList(),
+                    "events", supportsAppearance ? Arrays.asList("screensaver.appearance") : Collections.emptyList()), null);
+            }
+            if (command.equals("getScreensaverAppearance")) {
+                appearanceSubscribedBeforeRead = subscriptions.contains("screensaver.appearance");
+            }
         }
         void complete(String command, Object data) { callbacks.get(command).onResult(true, data, null); }
         public void subscribe(String event) {
@@ -335,7 +547,7 @@ public final class ControllerTest {
         public void updateSettings(Map<String, Object> values) { hostCalls++; saved.putAll(values); }
         public void showWindow(String title, String message, String button) { throw new AssertionError("No floating windows"); }
         public void hideWindow() { throw new AssertionError("No floating windows"); }
-        public void log(String message) {}
+        public void log(String message) { logs.add(message); }
         Set<String> entities() {
             Set<String> result = new LinkedHashSet<>();
             for (String value : subscriptions) if (value.startsWith("ha.entity.")) result.add(value);

@@ -117,6 +117,26 @@ class ContractsTest(unittest.TestCase):
         self.assertIn("addOnGlobalLayoutListener(redrawAfterLayout)", source)
         self.assertIn("removeOnGlobalLayoutListener(redrawAfterLayout)", source)
 
+    def test_appearance_uses_discovery_and_shared_palette_without_new_settings(self):
+        source = (ROOT / "src/com/shymoose/livenotifications/LiveNotificationsPlugin.java").read_text()
+        self.assertIn('executeCommand("getHostApi"', source)
+        self.assertIn('api.get("commands")', source)
+        self.assertIn('api.get("events")', source)
+        self.assertIn('host.subscribe("screensaver.appearance");\n                        readAppearance();', source)
+        self.assertIn("revision != appearanceRevision", source)
+        self.assertIn("request != appearanceRead", source)
+        self.assertIn("currentSession != session", source)
+        self.assertIn("screenKnown && saverKnown", source)
+        chip = (ROOT / "src/com/shymoose/livenotifications/NotificationChip.java").read_text()
+        self.assertIn("colors = new Colors(theme, darkSurface, appearance)", chip)
+        self.assertIn("label.setTextColor(colors.label)", chip)
+        self.assertIn("value.setTextColor(colors.value)", chip)
+        self.assertIn("drawable.setTint(colors.icon)", chip)
+        self.assertIn("progress.colors(colors.track, colors.fill)", chip)
+        self.assertIn("indicator).setColor(colors.light)", chip)
+        self.assertIn("outgoing.bind(outgoing.bound)", chip)
+        self.assertFalse(any(field["key"].startswith("night") for field in MANIFEST["settings"]))
+
     def test_notification_editor_order_and_plain_language(self):
         entries = next(field for field in MANIFEST["settings"] if field["key"] == "entries")
         fields = entries["fields"]
