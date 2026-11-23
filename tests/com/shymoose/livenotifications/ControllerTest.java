@@ -27,6 +27,8 @@ public final class ControllerTest {
         displayScopesAndVisibility();
         screensaverAppearance();
         appearanceReadRaces();
+        nowPlayingVisibility();
+        nowPlayingPreviewAndRaces();
         appearanceFailuresAndLegacyHosts();
         stopAndRestart();
         System.out.println("ControllerTest: " + checkCount() + " lifecycle assertions passed");
@@ -303,8 +305,8 @@ public final class ControllerTest {
         check(selected(f.plugin).id == 1, "night recolor preserves dwell deadline");
         f.plugin.onEvent("ks.screensaver.appearance", day("clock"));
         check(!appearance(f.plugin).night && appearance(f.plugin).cardColor == null,
-            "night exit or Now Playing takeover restores normal palette despite underlying clock view");
-        check(f.host.shows == 1 && selected(f.plugin).id == 1, "Now Playing palette update keeps passive rotation and layer");
+            "night exit restores normal palette despite underlying clock view");
+        check(f.host.shows == 1 && selected(f.plugin).id == 1, "legacy palette-only snapshot keeps passive rotation and layer");
         f.plugin.onEvent("ks.screensaver.appearance", night(true));
         check(f.host.entities().isEmpty() && selected(f.plugin) == null && f.host.hides == 1,
             "clock hide-widgets preference hides overlay and releases sources");
@@ -397,6 +399,128 @@ public final class ControllerTest {
         check(early.host.shows == 0, "confirming a new active saver requires a current appearance snapshot");
         early.host.complete("getScreensaverAppearance", night(false));
         check(appearance(early.plugin).night && early.host.shows == 1, "early snapshot ordering never attaches in day colors");
+    }
+
+    private static Map<String, Object> player(boolean shared, boolean night) {
+        Map<String, Object> result = night ? night(false) : day("clock");
+        result.put("nowPlaying", true);
+        result.put("nowPlayingShared", shared);
+        return result;
+    }
+
+    private static void nowPlayingVisibility() throws Exception {
+        Fixture f = new Fixture(Arrays.asList(row("sensor.a"), row("sensor.b")), false, true);
+        f.active();
+        f.entity("sensor.a", "available", "a");
+        f.entity("sensor.b", "available", "b");
+        f.scheduler.advance(4000);
+        f.plugin.onEvent("ks.screensaver.appearance", player(true, true));
+        check(appearance(f.plugin).night && appearance(f.plugin).nowPlayingShared,
+            "shared Now Playing keeps the resolved clock night palette");
+        check(f.host.shows == 1 && selected(f.plugin).id == 0 && f.host.entities().size() == 2,
+            "shared layout retains current reading, layer and live sources");
+        f.scheduler.advance(6000);
+        check(selected(f.plugin).id == 1, "entering shared layout does not reset dwell");
+        f.plugin.onEvent("ks.screensaver.appearance", player(false, false));
+        check(selected(f.plugin) == null && f.host.entities().isEmpty() && f.host.hides == 1,
+            "full-screen player hides live overlay and releases sources");
+        check(f.scheduler.pending() == 0 && !f.host.statusError && f.host.status.contains("Now Playing"),
+            "full-screen player leaves no timers and reports intentional paused status");
+        f.entity("sensor.b", "available", "stale while covered");
+        check(selected(f.plugin) == null, "late unsubscribed entity event cannot show over player");
+        f.plugin.onEvent("ks.screensaver.appearance", player(true, true));
+        check(f.host.shows == 2 && f.host.entities().size() == 2 && selected(f.plugin) == null
+            && appearance(f.plugin).night, "delayed shared-layout report resumes night colors with fresh sources");
+        f.entity("sensor.a", "available", "fresh a");
+        f.entity("sensor.b", "available", "fresh b");
+        f.scheduler.advance(9999);
+        check(selected(f.plugin).id == 0, "return from full-screen starts a full reading interval");
+        f.scheduler.advance(1);
+        check(selected(f.plugin).id == 1, "rotation resumes in configured order after fresh snapshots");
+        f.plugin.onEvent("ks.screensaver.appearance", player(false, false));
+        check(selected(f.plugin) == null && f.host.entities().isEmpty(), "orientation ending shared layout hides again");
+        f.plugin.onEvent("ks.screensaver.appearance", night(false));
+        check(appearance(f.plugin).night && f.host.entities().size() == 2 && selected(f.plugin) == null,
+            "player exit returns to resolved clock appearance without reusing stale data");
+        f.entity("sensor.a", "available", "clock");
+        Map<String, Object> hiddenShared = player(true, true);
+        hiddenShared.put("widgetsHidden", true);
+        f.plugin.onEvent("ks.screensaver.appearance", hiddenShared);
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null && f.host.status.contains("hides widgets"),
+            "shared layout still respects clock hide-widgets preference");
+        f.plugin.onEvent("ks.screensaver.appearance", player(false, false));
+        f.plugin.onEvent("ks.screensaver.state", map("active", false));
+        check(f.host.entities().size() == 2 && !f.host.spec.onTop() && !appearance(f.plugin).nowPlaying,
+            "screensaver exit restores Always dashboard even after takeover");
+        f.entity("sensor.a", "available", "dashboard");
+        f.plugin.onEvent("ks.screensaver.appearance", player(false, false));
+        check(selected(f.plugin).value.equals("dashboard") && !appearance(f.plugin).nowPlaying,
+            "late player appearance cannot hide dashboard");
+        f.plugin.onEvent("ks.screensaver.state", map("active", true));
+        check(f.host.entities().isEmpty(), "new saver session waits for fresh takeover state");
+        f.host.complete("getScreensaverAppearance", player(false, false));
+        check(f.host.entities().isEmpty() && selected(f.plugin) == null, "new full-screen saver remains hidden");
+        f.plugin.onEvent("ks.screen.state", map("on", false));
+        f.plugin.onEvent("ks.screensaver.appearance", player(true, true));
+        check(f.host.entities().isEmpty() && f.scheduler.pending() == 0,
+            "shared player update cannot resume work while screen is off");
+        f.plugin.stop();
+        check(!appearance(f.plugin).nowPlaying && !appearance(f.plugin).nowPlayingShared,
+            "stop clears player and shared-layout snapshot");
+    }
+
+    private static void nowPlayingPreviewAndRaces() throws Exception {
+        Fixture f = new Fixture(Collections.emptyList(), false, true);
+        f.host.complete("isScreenOn", true);
+        f.host.complete("isScreensaverActive", true);
+        PluginHost.CommandCallback initialRead = f.host.callbacks.get("getScreensaverAppearance");
+        f.settings.put("preview", true);
+        f.plugin.configure(f.settings);
+        f.plugin.onEvent("ks.screensaver.appearance", player(false, false));
+        initialRead.onResult(true, day("clock"), null);
+        check(f.host.shows == 0 && selected(f.plugin) == null && f.scheduler.pending() == 0,
+            "takeover event beats pending initial snapshot and prevents preview attachment flash");
+        check(Boolean.FALSE.equals(f.host.saved.get("preview")) && f.host.status.contains("Now Playing"),
+            "full-screen takeover stops and persists preview off even with no configured rows");
+        f.plugin.configure(f.settings);
+        check(selected(f.plugin) == null && f.scheduler.pending() == 0,
+            "new preview request cannot override full-screen player");
+        f.plugin.onEvent("ks.screensaver.appearance", player(true, true));
+        check(selected(f.plugin) == null, "shared layout does not silently restart stopped preview");
+        f.plugin.configure(f.settings);
+        check(selected(f.plugin).label.startsWith("Preview - ") && appearance(f.plugin).night,
+            "explicit preview in shared layout uses resolved night tint");
+        f.plugin.onEvent("ks.screensaver.appearance", player(false, false));
+        check(selected(f.plugin) == null && f.scheduler.pending() == 0 && f.host.entities().isEmpty(),
+            "shared-to-full transition cancels preview rotation and expiry");
+        f.plugin.onEvent("ks.screensaver.appearance", day("clock"));
+        check(selected(f.plugin) == null, "player exit cannot restart canceled preview");
+
+        Fixture initial = new Fixture(Collections.singletonList(row("sensor.a")), false, true);
+        initial.host.complete("isScreenOn", true);
+        initial.host.complete("isScreensaverActive", true);
+        initial.host.complete("getScreensaverAppearance", player(false, false));
+        check(initial.host.shows == 0 && initial.host.entities().isEmpty() && !initial.host.statusError,
+            "initial full-screen snapshot attaches neither overlay nor HA subscriptions");
+        initial.plugin.onEvent("ks.screensaver.view", map("view", "slideshow"));
+        PluginHost.CommandCallback pending = initial.host.callbacks.get("getScreensaverAppearance");
+        initial.plugin.onEvent("ks.screensaver.appearance", player(true, true));
+        pending.onResult(true, player(false, false), null);
+        check(initial.host.entities().size() == 1 && appearance(initial.plugin).nowPlayingShared,
+            "new shared-layout event wins over older full-screen read");
+        initial.plugin.onEvent("ks.screensaver.view", map("view", "slideshow"));
+        PluginHost.CommandCallback stoppedRead = initial.host.callbacks.get("getScreensaverAppearance");
+        initial.plugin.stop();
+        int calls = initial.host.hostCalls;
+        stoppedRead.onResult(true, player(true, true), null);
+        check(initial.host.hostCalls == calls, "late shared-layout read does no work after stop");
+        initial.plugin.start(initial.host, initial.settings);
+        stoppedRead.onResult(true, player(false, false), null);
+        initial.host.complete("isScreenOn", true);
+        initial.host.complete("isScreensaverActive", true);
+        initial.host.complete("getScreensaverAppearance", night(false));
+        check(initial.host.entities().size() == 1 && !appearance(initial.plugin).nowPlaying,
+            "restart discards old takeover callbacks and reads current state");
     }
 
     private static void appearanceFailuresAndLegacyHosts() throws Exception {

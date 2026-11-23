@@ -334,11 +334,12 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
 
     private void refresh() {
         main.removeCallbacks(rotate);
-        if (effectiveAppearance().widgetsHidden) stopPreview();
+        if (effectiveAppearance().widgetsHidden || effectiveAppearance().fullScreenNowPlaying()) stopPreview();
         boolean active = runtimeError == null && config != null && screenKnown && saverKnown
             && screenOn && foreground && hostApiReady
             && (!screensaver || !appearanceSupported || appearanceReady)
             && !effectiveAppearance().widgetsHidden
+            && !effectiveAppearance().fullScreenNowPlaying()
             && (preview || (config.enabled && config.allows(screensaver) && !config.entries.isEmpty()));
         boolean watch = active && !preview;
         syncSources(watch ? config.sources : Collections.emptySet());
@@ -438,6 +439,8 @@ public final class LiveNotificationsPlugin implements KioskPlugin {
         if (runtimeError != null || configError != null) {
             message = runtimeError != null ? runtimeError : configError;
             error = true;
+        } else if (effectiveAppearance().fullScreenNowPlaying()) {
+            message = "Now Playing fills the screensaver. Live notifications and preview are paused.";
         } else if (preview) {
             message = "Preview: sample data, not live Home Assistant values. Stops after two minutes or when settings close.";
         } else if (config == null || config.entries.isEmpty()) {

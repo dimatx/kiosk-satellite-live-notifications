@@ -35,7 +35,7 @@
     },
     {
       "key": "entries", "title": "Notifications", "type": "list", "default": [],
-      "group": "Notifications", "addTitle": "Add notification", "maxItems": 32,
+      "group": "Notifications", "addTitle": "Add notification", "maxItems": 32, "duplicate": true,
       "description": "Shown in this order when their visibility rules match. Use up to 16 different Home Assistant entities across enabled notifications; reused entities count once.",
       "row": {"title": "entity", "subtitle": "label"},
       "fields": [
@@ -129,7 +129,7 @@
     {
       "key": "preview", "title": "Preview sample notifications", "type": "boolean",
       "default": false, "group": "Placement",
-      "description": "Cycles labeled sample data, even with no configured entities. Stops when turned off, the settings page closes, the screen turns off, or after two minutes. Does not start or replace a screensaver."
+      "description": "Cycles labeled sample data, even with no configured entities. Stops when turned off, settings close, the screen turns off, full-screen Now Playing is reported, or after two minutes. Does not start or replace a screensaver."
     }
   ],
   "commands": []

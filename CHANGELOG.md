@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Hide live notifications and stop sample preview while KS reports full-screen
+  Now Playing. Pause sources/rotation and resume with fresh data when it closes
+  or changes to a shared layout; shared clocks keep their resolved Night colors.
+  Older hosts without the optional player fields retain their existing behavior.
+- Enable the standard **Duplicate** action in notification row editors on
+  supporting KS hosts. Save appends the copy; the 32-row and 16-source limits stay.
+
 ## 0.1.7
 
 - Collapse display whitespace before truncating labels and values, so indented

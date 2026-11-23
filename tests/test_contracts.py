@@ -169,6 +169,13 @@ class ContractsTest(unittest.TestCase):
             self.assertIn("attribute", help_text)
         self.assertIn("0 to 100", by_key["progressEntity"]["description"])
 
+    def test_notification_rows_use_standard_duplicate_control(self):
+        entries = next(field for field in MANIFEST["settings"] if field["key"] == "entries")
+        self.assertIs(entries["duplicate"], True)
+        self.assertEqual(entries["maxItems"], 32)
+        self.assertEqual(entries["type"], "list")
+        self.assertFalse(any(field["key"] == "duplicate" for field in entries["fields"]))
+
 
 if __name__ == "__main__":
     unittest.main()

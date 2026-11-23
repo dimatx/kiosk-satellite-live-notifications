@@ -65,6 +65,42 @@ public final class AppearanceTest {
         KsTheme changed = new KsTheme(true, 2, roles, null);
         check(new NotificationChip.Colors(changed, false, exit).value == 0xffeff0f1, "restoration resolves newest host theme");
         check(new NotificationChip.Colors(changed, false, night).value == night.textColor, "theme update cannot override active night");
+        check(!night.nowPlaying && !night.nowPlayingShared && !night.fullScreenNowPlaying(),
+            "older appearance snapshots without optional player fields preserve existing behavior");
+        payload.put("nowPlaying", true);
+        payload.put("nowPlayingShared", false);
+        ScreensaverAppearance full = ScreensaverAppearance.read(payload);
+        check(full.nowPlaying && !full.nowPlayingShared && full.fullScreenNowPlaying(),
+            "full-screen player is retained even though night is false");
+        payload.remove("nowPlayingShared");
+        check(ScreensaverAppearance.read(payload).fullScreenNowPlaying(),
+            "hosts with only nowPlaying still report takeover");
+        payload.put("nowPlayingShared", true);
+        payload.put("night", true);
+        payload.put("widgetsHidden", false);
+        ScreensaverAppearance shared = ScreensaverAppearance.read(payload);
+        check(shared.nowPlaying && shared.nowPlayingShared && !shared.fullScreenNowPlaying() && shared.night,
+            "shared player preserves clock night appearance");
+        for (boolean glass : new boolean[]{false, true}) {
+            NotificationChip.Colors colors = new NotificationChip.Colors(theme, glass, shared);
+            check(colors.value == shared.textColor && colors.surface == (glass ? 0xe2242526 : 0xff242526),
+                "shared clock uses resolved foreground and Flip surface in both materials");
+        }
+        Map<String, Object> samePalette = new java.util.LinkedHashMap<>(payload);
+        samePalette.put("nowPlayingShared", false);
+        check(!shared.equals(ScreensaverAppearance.read(samePalette)), "shared-layout changes affect snapshot equality");
+        samePalette.put("nowPlaying", false);
+        samePalette.put("nowPlayingShared", true);
+        ScreensaverAppearance absentPlayer = ScreensaverAppearance.read(samePalette);
+        check(!absentPlayer.nowPlayingShared && !absentPlayer.fullScreenNowPlaying(),
+            "shared flag alone cannot invent a player");
+        for (String field : new String[]{"nowPlaying", "nowPlayingShared"}) {
+            for (Object invalid : new Object[]{null, "true", 1}) {
+                Map<String, Object> malformed = new java.util.LinkedHashMap<>(payload);
+                malformed.put(field, invalid);
+                expectInvalid(malformed);
+            }
+        }
         expectInvalid(map());
         expectInvalid(map("view", "clock", "night", true, "widgetsHidden", false, "textColor", "red"));
         for (Object color : new Object[]{Double.NaN, Double.POSITIVE_INFINITY, 3.5, 0x100000000L, -2147483649L}) {

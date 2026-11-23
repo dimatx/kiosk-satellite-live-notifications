@@ -19,11 +19,18 @@ and development checks.
 5. Turn preview off. Eligible notifications appear in your chosen display scope.
    No HA service calls or changes to your screensaver are needed.
 
+On KS versions with the standard **Duplicate** row action, open an existing
+notification and choose **Duplicate** to copy the fields currently in its editor.
+Adjust the copy and **Save** to append it; the original row stays unchanged.
+Cancel discards the copy. Duplicate is not offered at the 32-row limit.
+Older hosts ignore the opt-in flag and keep their usual row editor.
+
 Preview works without configured entities or matching conditions. It cycles sample
 notifications at the selected dwell interval and stops when switched off, settings
 close, the screen turns off, the plugin stops, or two minutes elapse. A saved preview
 never resumes after restart. One sample includes a progress bar so you can check
-its appearance too. Preview does not wake the display or start a screensaver.
+its appearance too. Full-screen Now Playing also stops preview when the host
+reports it. Preview does not wake the display or start a screensaver.
 
 ## Find the right setting
 
@@ -65,10 +72,24 @@ not brightened or contrast-corrected by the plugin.
 **Hide widgets and At a Glance** also hides Live notifications while Clock Night
 mode is active. Sources and rotation pause, sample preview stops, and resuming
 waits for fresh HA data. This preference does not hide dashboard notifications.
-Night mode exit, another screensaver, or full-screen Now Playing restores the
-normal palette for your chosen style. The appearance API reports the underlying
-view under Now Playing, not a separate takeover flag; Live notifications remains
-a passive overlay in its configured scope rather than guessing whether to hide.
+Night mode exit or another screensaver restores the normal palette for your
+chosen style.
+
+On hosts reporting the optional `nowPlaying` / `nowPlayingShared` appearance
+fields, a full-screen player hides notifications, stops preview, and releases
+entity subscriptions and rotation timers. This includes a paused player that
+still fills the screensaver. Closing the player or entering a shared layout
+resumes normal eligibility with fresh data, not cached values or a restarted
+preview. A shared clock keeps its resolved Night colors and hide-widgets
+preference; shared-layout color changes do not reset an ongoing dwell.
+Shared layout may be reported after the player first appears, and rotation can
+return it to full-screen, so the plugin follows every appearance event.
+
+The `view` field still names the screensaver under the player; it is not used to
+guess playback. With neither optional field present, older appearance hosts keep
+their existing visibility and palette behavior. A player with no shared-layout
+flag is treated as full-screen. Screensaver playback events never
+hide or tint dashboard notifications.
 
 The plugin checks the command **and** event lists returned by `getHostApi`,
 subscribes to `screensaver.appearance` before its initial `getScreensaverAppearance`
@@ -260,7 +281,8 @@ rotation, stale-read races, live updates, preview expiry, subscription changes,
 cleanup and restart with a fake host and deterministic clock. Appearance tests
 exercise the native chip's actual palette resolver for both materials, signed and
 unsigned ARGB, custom/Flip colors, restoration and host theme changes. Controller
-tests cover initial attach, event/read ordering, hidden widgets, Now Playing palette
+tests cover initial attach, event/read ordering, hidden widgets, full-screen/shared
+Now Playing transitions, preview cancellation, rotation and Night palette
 restoration, screen-off, restart, older hosts and explicit API failures. They do **not** render
 Android views or replace testing in KS. Package verification checks the checksum,
 manifest identity, license, size limits and actual DEX class definitions.
@@ -298,6 +320,12 @@ Before calling a release device-tested, install the ZIP on a KS test device and 
 - On KS 2026.11.1+, initial attach during Clock Night mode, custom colors in Native
   and Glass, Night mode exit, Flip cards, Hide widgets, Now Playing takeover and
   native notification/intercom/announcement layering.
+- With the optional Now Playing fields, full-screen and paused-player takeover
+  during live display and preview; delayed shared-layout reporting, orientation
+  changes, shared Night colors and return to normal eligibility. In both kiosk
+  and Remote Admin row editors, Duplicate/Save/Cancel with advanced sources and
+  the 31-to-32-row boundary. These new controls/transitions still need physical
+  acceptance; no device/profile changes were made for this source update.
 
 No physical-device or emulator rendering verification is implied by the JVM/build
 checks. KS Remote Admin screenshots may omit native overlays; use a device screenshot

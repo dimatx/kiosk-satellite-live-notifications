@@ -64,6 +64,9 @@ public final class CoreTest {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (int i = 0; i < 32; i++) rows.add(row("sensor.shared"));
         check(config(rows).sources.size() == 1, "duplicate sources share one subscription");
+        check(config(rows).entries.get(31).id == 31, "copied rows keep separate rotation positions at the 32-row limit");
+        rows.add(new LinkedHashMap<>(rows.get(0)));
+        rejects(() -> config(rows), "duplicating past 32 rows is rejected even when all sources are shared");
         rows.clear();
         for (int i = 0; i < 16; i++) rows.add(row("sensor.value_" + i));
         check(config(rows).sources.size() == 16, "exact limit allowed");

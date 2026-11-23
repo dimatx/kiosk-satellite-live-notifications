@@ -6,21 +6,23 @@ import java.util.Objects;
 
 /** Detached public KS appearance snapshot; no clock settings or lux heuristics. */
 final class ScreensaverAppearance {
-    static final ScreensaverAppearance NORMAL = new ScreensaverAppearance(null, false, 0, 0, null, false);
+    static final ScreensaverAppearance NORMAL = new ScreensaverAppearance(null, false, 0, 0, null, false, false, false);
 
     final String view;
-    final boolean night, widgetsHidden;
+    final boolean night, widgetsHidden, nowPlaying, nowPlayingShared;
     final int textColor, backgroundColor;
     final Integer cardColor;
 
     private ScreensaverAppearance(String view, boolean night, int textColor, int backgroundColor,
-                                 Integer cardColor, boolean widgetsHidden) {
+                                 Integer cardColor, boolean widgetsHidden, boolean nowPlaying, boolean nowPlayingShared) {
         this.view = view;
         this.night = night;
         this.textColor = textColor;
         this.backgroundColor = backgroundColor;
         this.cardColor = cardColor;
         this.widgetsHidden = widgetsHidden;
+        this.nowPlaying = nowPlaying;
+        this.nowPlayingShared = nowPlayingShared;
     }
 
     static ScreensaverAppearance read(Object data) {
@@ -30,15 +32,28 @@ final class ScreensaverAppearance {
         if ((view != null && !(view instanceof String)) || !(night instanceof Boolean) || !(hidden instanceof Boolean)) {
             throw new IllegalArgumentException("Invalid screensaver appearance state");
         }
+        boolean playing = optionalBoolean(payload, "nowPlaying");
+        boolean shared = optionalBoolean(payload, "nowPlayingShared") && playing;
         if (Boolean.TRUE.equals(night)) {
             if (!"clock".equals(view)) throw new IllegalArgumentException("Night appearance requires the clock view");
             int text = color(payload.get("textColor"));
             int background = color(payload.get("backgroundColor"));
             Integer card = payload.get("cardColor") == null ? null : color(payload.get("cardColor"));
-            return new ScreensaverAppearance((String) view, true, text, background, card, (Boolean) hidden);
+            return new ScreensaverAppearance((String) view, true, text, background, card, (Boolean) hidden, playing, shared);
         }
         // Null colors on exit are normal. Never retain the previous night palette.
-        return new ScreensaverAppearance((String) view, false, 0, 0, null, false);
+        return new ScreensaverAppearance((String) view, false, 0, 0, null, false, playing, shared);
+    }
+
+    boolean fullScreenNowPlaying() {
+        return nowPlaying && !nowPlayingShared;
+    }
+
+    private static boolean optionalBoolean(Map<?, ?> payload, String key) {
+        if (!payload.containsKey(key)) return false;
+        Object value = payload.get(key);
+        if (!(value instanceof Boolean)) throw new IllegalArgumentException("Invalid screensaver appearance " + key);
+        return (Boolean) value;
     }
 
     private static int color(Object value) {
@@ -61,11 +76,12 @@ final class ScreensaverAppearance {
         if (!(other instanceof ScreensaverAppearance)) return false;
         ScreensaverAppearance next = (ScreensaverAppearance) other;
         return Objects.equals(view, next.view) && night == next.night && widgetsHidden == next.widgetsHidden
+            && nowPlaying == next.nowPlaying && nowPlayingShared == next.nowPlayingShared
             && textColor == next.textColor && backgroundColor == next.backgroundColor
             && Objects.equals(cardColor, next.cardColor);
     }
 
     @Override public int hashCode() {
-        return Objects.hash(view, night, widgetsHidden, textColor, backgroundColor, cardColor);
+        return Objects.hash(view, night, widgetsHidden, nowPlaying, nowPlayingShared, textColor, backgroundColor, cardColor);
     }
 }

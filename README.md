@@ -66,6 +66,10 @@ A notification starts with one entity. **Show when** can check availability, an
 exact state, or a numeric comparison. For example, use the dryer's running state
 to decide when to show it, and its remaining-time sensor for the text.
 
+On supporting KS hosts, open an existing row and choose **Duplicate**, edit the
+copy, then **Save** to append it. The original stays unchanged; the option is
+unavailable at 32 rows.
+
 **Progress bar > Automatic** recognizes a displayed percentage. Choose **On**
 to use a separate completion sensor, reporting 0–100; choose **Off** to hide it.
 Time remaining is not treated as progress. The optional **Live indicator** is
@@ -88,8 +92,11 @@ for dryers, vacuums and vehicle arrival, including how to use entity attributes.
 size and rotation stay shared. On **KS 2026.11.1 or newer**, both Native and Glass
 automatically follow the clock's active Night mode colors. When the clock hides
 widgets at night, Live notifications hides too. Normal colors return when Night
-mode ends, you leave the clock, or full-screen Now Playing takes over.
-Older supported KS versions keep the usual plugin colors.
+mode ends or you leave the clock. When KS reports full-screen Now Playing,
+notifications hide and preview stops. A shared player layout keeps normal
+notification eligibility and the clock's resolved Night colors.
+Older hosts without the optional player fields retain their existing visibility;
+hosts without the appearance API keep the usual plugin colors.
 
 Placement is manual: use preview to leave room for clocks, widgets and bars.
 There is **no automatic collision avoidance**. Adaptive width fits portrait and
