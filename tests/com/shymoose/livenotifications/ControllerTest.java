@@ -419,6 +419,9 @@ public final class ControllerTest {
             "shared Now Playing keeps the resolved clock night palette");
         check(f.host.shows == 1 && selected(f.plugin).id == 0 && f.host.entities().size() == 2,
             "shared layout retains current reading, layer and live sources");
+        f.plugin.onEvent("ks.screensaver.appearance", player(true, false));
+        check(!appearance(f.plugin).night && selected(f.plugin).id == 0 && f.host.shows == 1,
+            "shared daytime layout keeps eligibility and restores normal palette without rebuilding");
         f.scheduler.advance(6000);
         check(selected(f.plugin).id == 1, "entering shared layout does not reset dwell");
         f.plugin.onEvent("ks.screensaver.appearance", player(false, false));
@@ -426,6 +429,10 @@ public final class ControllerTest {
             "full-screen player hides live overlay and releases sources");
         check(f.scheduler.pending() == 0 && !f.host.statusError && f.host.status.contains("Now Playing"),
             "full-screen player leaves no timers and reports intentional paused status");
+        int coveredCalls = f.host.hostCalls;
+        f.plugin.onEvent("ks.screensaver.appearance", player(false, false));
+        check(f.host.hostCalls == coveredCalls && f.scheduler.pending() == 0,
+            "unchanged full-screen snapshot, including a paused player, stays hidden without host churn");
         f.entity("sensor.b", "available", "stale while covered");
         check(selected(f.plugin) == null, "late unsubscribed entity event cannot show over player");
         f.plugin.onEvent("ks.screensaver.appearance", player(true, true));

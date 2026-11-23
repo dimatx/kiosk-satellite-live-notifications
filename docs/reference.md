@@ -324,12 +324,22 @@ Before calling a release device-tested, install the ZIP on a KS test device and 
   during live display and preview; delayed shared-layout reporting, orientation
   changes, shared Night colors and return to normal eligibility. In both kiosk
   and Remote Admin row editors, Duplicate/Save/Cancel with advanced sources and
-  the 31-to-32-row boundary. These new controls/transitions still need physical
-  acceptance; no device/profile changes were made for this source update.
+  the 31-to-32-row boundary. Native kiosk-editor interactions and real media
+  transitions still need physical acceptance; no device/profile changes were
+  made for this source update.
 
 No physical-device or emulator rendering verification is implied by the JVM/build
 checks. KS Remote Admin screenshots may omit native overlays; use a device screenshot
 when verifying visuals.
+
+The new Duplicate flow was checked in a local browser using the unmodified KS
+2026.11.29 Remote Admin list/editor components and this plugin's actual schema.
+Unsaved-draft copying, advanced and hidden fields, required-field validation,
+Save/Cancel and the 31-to-32-row boundary passed with loopback-only fixture data;
+no kiosk or Home Assistant was contacted. This does not verify the native Flutter
+row editor or Android overlay rendering. The real production controller and
+palette resolver cover full-screen, unchanged/paused, shared day/night and
+initial/event race scenarios in the deterministic JVM harness.
 
 Version 0.1.6 was additionally checked on Android 17 (2000x1200 landscape),
 KS 2026.11.3, using an isolated temporary plugin ID with identical production Java
