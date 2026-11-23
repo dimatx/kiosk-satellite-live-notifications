@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.8
 
 - Hide live notifications and stop sample preview while KS reports full-screen
   Now Playing. Pause sources/rotation and resume with fresh data when it closes
@@ -8,6 +8,11 @@
   Older hosts without the optional player fields retain their existing behavior.
 - Enable the standard **Duplicate** action in notification row editors on
   supporting KS hosts. Save appends the copy; the 32-row and 16-source limits stay.
+- Isolated Android acceptance with identical production Java and detached SDK
+  fixtures covers full-screen/paused/shared visibility, Native/Glass Night colors,
+  preview cancellation and cleanup. The shipped Remote Admin Duplicate editor
+  passed draft/advanced fields, Save/Cancel and the 32-row boundary offline.
+  Real media/orientation changes and native kiosk-editor taps were not induced.
 
 ## 0.1.7
 

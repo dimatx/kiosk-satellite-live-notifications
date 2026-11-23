@@ -267,9 +267,9 @@ python tools\verify_package.py
 
 Outputs:
 
-- `dist/ks-live-notifications-0.1.7.zip` — local developer installation package.
+- `dist/ks-live-notifications-0.1.8.zip` — local developer installation package.
 - `dist/kiosk-satellite-plugin.json` — byte-identical standalone manifest.
-- `dist/ks-live-notifications-0.1.7.zip.sha256` — SHA-256 checksum.
+- `dist/ks-live-notifications-0.1.8.zip.sha256` — SHA-256 checksum.
 
 The official SDK and build helpers are vendored at the revision recorded in
 [NOTICE](../NOTICE), with their Apache-2.0 licensing intact. SDK classes are compile-time
@@ -324,9 +324,9 @@ Before calling a release device-tested, install the ZIP on a KS test device and 
   during live display and preview; delayed shared-layout reporting, orientation
   changes, shared Night colors and return to normal eligibility. In both kiosk
   and Remote Admin row editors, Duplicate/Save/Cancel with advanced sources and
-  the 31-to-32-row boundary. Native kiosk-editor interactions and real media
-  transitions still need physical acceptance; no device/profile changes were
-  made for this source update.
+  the 31-to-32-row boundary. Native kiosk-editor interactions and real media/
+  orientation transitions remain unexercised; bounded fixture acceptance is
+  described below.
 
 No physical-device or emulator rendering verification is implied by the JVM/build
 checks. KS Remote Admin screenshots may omit native overlays; use a device screenshot
@@ -340,6 +340,17 @@ no kiosk or Home Assistant was contacted. This does not verify the native Flutte
 row editor or Android overlay rendering. The real production controller and
 palette resolver cover full-screen, unchanged/paused, shared day/night and
 initial/event race scenarios in the deterministic JVM harness.
+
+Version 0.1.8 additionally used an isolated temporary plugin ID on Android 17 /
+KS 2026.11.29 (2000x1200 landscape), with byte-identical production Java sources.
+Fourteen bounded detached SDK scenarios and native framebuffer captures checked
+Night attachment, full-screen and unchanged paused-player suppression, shared
+day/Night colors in Native and Glass, hidden widgets, preview stopping without
+automatic restart, clock exit/reentry and subsequent rotation. The fixture was
+removed; production Live settings, host renderer and profile membership were
+preserved. These are native View checks using synthetic appearance/entity inputs,
+not actual media playback, lux or orientation changes. Native Flutter Duplicate
+interactions remain source-verified rather than physically tapped.
 
 Version 0.1.6 was additionally checked on Android 17 (2000x1200 landscape),
 KS 2026.11.3, using an isolated temporary plugin ID with identical production Java
